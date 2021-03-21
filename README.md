@@ -20,4 +20,4 @@ Language: TypeScript
 Frameworks: React, Redux
 
 
-This submodules was created with `npx create-react-app`.
+This submodule was created with `npx create-react-app`.
