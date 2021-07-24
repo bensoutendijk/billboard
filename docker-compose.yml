@@ -5,6 +5,7 @@ services:
                 volumes:
                         - ./app:/usr/src/app
                         - /usr/src/app/build
+                        - /usr/src/app/node_modules
         nginx: 
                 image: nginx:latest
                 container_name: production_nginx
