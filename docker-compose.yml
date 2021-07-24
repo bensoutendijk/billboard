@@ -4,6 +4,7 @@ services:
                 ports: ['5000:5000']
                 volumes:
                         - ./app:/usr/src/app
+                        - /usr/src/app/build
         nginx: 
                 image: nginx:latest
                 container_name: production_nginx
