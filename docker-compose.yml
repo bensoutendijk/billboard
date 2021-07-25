@@ -6,6 +6,8 @@ services:
                         - ./app:/usr/src/app
                         - /usr/src/app/build
                         - /usr/src/app/node_modules
+                depends_on:
+                        - "mongo"
         nginx: 
                 image: nginx:latest
                 container_name: production_nginx
@@ -19,3 +21,25 @@ services:
                         - 443:443
                 depends_on:
                         - "api"
+                        - "client"
+        client:
+                build: ./client
+                ports: ['3000:3000']
+                volumes: 
+                        - ./client:/usr/src/client
+                        - /usr/src/client/build
+                        - /usr/src/client/node_modules
+                stdin_open: true
+                environment:
+                        - CHOKIDAR_USEPOLLING=true
+                command: npm start
+                depends_on:
+                        - "api"
+        mongo:
+                image: mongo
+                ports:
+                        - 27017:27017
+                volumes:
+                        - mongodb:/data/db
+volumes:
+        mongodb:
