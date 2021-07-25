@@ -28,9 +28,9 @@ services:
                 build: ./client
                 ports: ['3000:3000']
                 volumes: 
-                        - ./client:/usr/src/client
+                        - ./client:/usr/src/app
                         - app_bundle:/usr/src/app/build
-                        - /usr/src/client/node_modules
+                        - /usr/src/app/node_modules
                 stdin_open: true
                 environment:
                         - CHOKIDAR_USEPOLLING=true
