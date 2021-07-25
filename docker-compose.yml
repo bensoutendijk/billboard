@@ -12,10 +12,11 @@ services:
                 image: nginx:latest
                 container_name: production_nginx
                 volumes:
-                        - ./nginx.conf:/etc/nginx/nginx.conf
+                        - ./nginx/production.conf:/etc/nginx/nginx.conf
                         - ./nginx/error.log:/etc/nginx/error_log.log
                         - ./nginx/cache/:/etc/nginx/cache
                         - /etc/letsencrypt/:/etc/letsencrypt/
+                        - app_bundle:/usr/share/nginx/html:ro
                 ports:
                         - 80:80
                         - 443:443
@@ -27,7 +28,7 @@ services:
                 ports: ['3000:3000']
                 volumes: 
                         - ./client:/usr/src/client
-                        - /usr/src/client/build
+                        - app_bundle:/usr/src/client/build
                         - /usr/src/client/node_modules
                 stdin_open: true
                 environment:
@@ -42,3 +43,4 @@ services:
                         - mongodb:/data/db
 volumes:
         mongodb:
+        app_bundle:
