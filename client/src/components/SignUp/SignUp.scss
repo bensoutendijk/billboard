@@ -1,0 +1,26 @@
+.SignUp {
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 100px;
+    .jumbotron {
+        width: 300px;
+
+        @media (min-width: 576px) {
+            width: 500px;
+        }
+    }
+
+    .one-click-logins {
+        display: flex;
+        flex-direction: column;
+
+        margin-top: 1em;
+        margin-bottom: 1em;
+
+        & > .btn {
+            width: 100%;
+        }
+    }
+}

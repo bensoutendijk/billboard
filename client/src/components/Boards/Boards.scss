@@ -1,0 +1,43 @@
+.Boards {
+    overflow: hidden;
+    display: flex;
+    flex-grow: 1;
+}
+
+.BoardList {
+    .BoardList-button {
+        display: inline-flex;
+        height: 6em;
+        width: 10em;
+        padding: 0.5em 1em;
+        margin: 0em 0.5em 0.5em 0em;
+    }
+
+    .BoardList-button-new {
+        flex-direction: column;
+        justify-content: center;
+    }
+}
+
+.BoardView {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    .BoardEdit-btn {
+        margin-left: 0.5em;
+        align-self: center;
+        color: rgba(255, 255, 255, 0.75);
+        &:hover {
+          background-color: rgba(0, 0, 0, 0.1);
+        }
+        &:focus {
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+        }
+      }
+}
+
+.BoardSettings {
+}
+

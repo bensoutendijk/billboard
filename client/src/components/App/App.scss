@@ -1,0 +1,30 @@
+.App {
+    overflow: hidden;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #6c757d;
+}
+
+.AppLoading {
+    min-height: 100vh;
+    min-width: 100vw;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.AppLoading-text {
+    margin-top: 24px;
+}
+
+.ViewSourceButton {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+}

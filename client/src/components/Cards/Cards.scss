@@ -1,0 +1,66 @@
+.CardList {
+  min-height: 1px;
+}
+
+.CardView {
+  margin-bottom: 0.25em;
+  .CardView-card {
+    .card-body {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.1em 0.2em 0.1em 0.2em;
+
+      .CardEdit-btn {
+        align-self: baseline;
+        color: black;
+        &:hover {
+          background-color: rgba(0, 0, 0, 0.1);
+        }
+      }
+    }
+  }
+
+  .CardEdit-card {
+    display: flex;
+    flex-direction: row;
+    z-index: 1;
+    position: absolute;
+    margin-bottom: 0.25em;
+    background-color: unset;
+    border: none;
+    .CardEdit-card-form {
+      min-width: 232px;
+      margin-right: 0.5em;
+      
+      .card-body {
+        padding: 0;
+        .form-control {
+          padding: 0.5em;
+        }
+      }
+    }
+    .CardEdit-card-quicktools {
+      display: flex;
+      flex-direction: column;
+      .btn {
+        margin-bottom: 0.2em;
+        min-width: max-content;
+        max-width: min-content;
+        text-align: left;
+      }
+    }
+
+    &:before {
+      content: " ";
+      top: 0;
+      left: 0;
+      position: fixed;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      background: rgba(0,0,0,0.7);
+      z-index: -1;
+    }
+  }
+}

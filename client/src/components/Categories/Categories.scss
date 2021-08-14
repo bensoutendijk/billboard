@@ -1,0 +1,43 @@
+.CategoryList {
+  overflow: auto;
+  display: flex;
+  height: 100%;
+  padding: 0em 1em;
+}
+
+.CategoryNew {
+  margin: 0 1em 1em 0;
+  .card {
+    width: 250px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border: none;
+
+    .card-body {
+      padding: 0.3em;
+    }
+  }
+
+  .CategoryNew-btn {
+    width: 250px;
+  }
+}
+
+.CategoryView {
+  .CategoryView-card {
+    width: 250px;
+    margin: 0em 1em 1em 0em;
+    .card-body {
+      padding: 0.5em;
+    }
+  }
+  .CategoryHeader {
+    margin: 5px 5px 0 5px;
+    display: flex;
+    justify-content: space-between;
+    
+    .CategoryTitle {
+      font-weight: 600;
+      line-height: 1.8;
+    }
+  }
+}

@@ -1,6 +1,0 @@
-[submodule "app"]
-	path = app
-	url = git@github.com:bensoutendijk/trello-clone-back-end.git
-[submodule "client"]
-	path = client
-	url = git@github.com:bensoutendijk/trello-clone-front-end.git
