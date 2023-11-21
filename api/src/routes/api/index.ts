@@ -1,10 +1,14 @@
 import express from 'express';
 import authRoutes from './auth';
 import cardsRoutes from './cards';
-import boardsRoutes from './boards'
-import categoriesRoutes from './categories'
+import boardsRoutes from './boards';
+import categoriesRoutes from './categories';
 
 const router = express.Router();
+
+router.get('/', (req, res) => {
+  res.send('Hello World!');
+});
 
 router.use('/auth', authRoutes);
 router.use('/cards', cardsRoutes);
