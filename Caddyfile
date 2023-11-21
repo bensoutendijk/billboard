@@ -22,7 +22,7 @@ http://:{$CADDY_PORT:8000} {
     }
 
     # Reverse proxy requests to port 5000
-    handle_path /api/* {
+    handle /api/* {
         reverse_proxy localhost:5000
     }
 }

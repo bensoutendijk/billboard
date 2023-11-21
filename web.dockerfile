@@ -31,13 +31,34 @@ RUN npm install
 # Build the API bundle
 RUN npm run build
 
-FROM node:12-alpine
+FROM node:12-bullseye-slim
 
-# Install supervisord
-RUN apk add --no-cache supervisor
+RUN apt-get update && \
+  apt-get install -y \
+  gnupg \
+  curl \
+  debian-keyring \
+  debian-archive-keyring \
+  apt-transport-https
 
-# Install caddy
-RUN apk add --no-cache caddy=2.4.6-r3
+# Add the Caddy repository
+RUN curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+RUN curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+
+# Add the MongoDB repository
+RUN curl -fsSL https://pgp.mongodb.com/server-7.0.asc | \
+  gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
+  --dearmor
+RUN echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] http://repo.mongodb.org/apt/debian bullseye/mongodb-org/7.0 main" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+
+RUN apt-get update && \
+  apt-get install -y \ 
+  supervisor \
+  caddy \
+  mongodb-org 
+
+# Create the MongoDB data directory
+RUN mkdir -p /data/db
 
 # Copy the supervisord configuration file
 COPY ./supervisord.conf /etc/supervisord.conf
