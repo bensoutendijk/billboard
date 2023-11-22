@@ -21,7 +21,7 @@ mongoose
     process.env.MONGO_URI,
     { useNewUrlParser: true },
   )
-  .then(() => console.log('MongoDB Connected'));
+  .then(onDatabaseConnect);
 require('./models/LocalUser');
 require('./models/OAuthUser');
 require('./models/Card');
@@ -31,6 +31,7 @@ require('./services/passport');
 
 // Create express app
 import routes from './routes';
+import LocalUser from './models/LocalUser';
 const app = express();
 
 app.use(cookieParser());
@@ -47,3 +48,30 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log('Listening on port ', PORT);
 });
+
+
+async function onDatabaseConnect(): Promise<void> {
+  console.log('MongoDB Connected');
+
+  const LocalUser = mongoose.model<LocalUser>('LocalUser');
+
+  const demoUser = {
+    email: 'demo@soutendijk.org',
+    password: 'd!p#wT7w%OksA8sN5w',
+  };
+
+  const existingUser = await LocalUser.findOne({ email: demoUser.email });
+
+  if (!existingUser) {
+    const finalUser = new LocalUser(demoUser);
+    finalUser.setPassword(demoUser.password);
+    // Create demo user
+    finalUser.save()
+      .then(() => {
+        console.log('Demo user created');
+      })
+      .catch((error) => {
+        console.error('Error creating test user:', error);
+      });
+  }
+}
