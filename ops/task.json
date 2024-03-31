@@ -1,0 +1,109 @@
+{
+    "family": "BillboardTask",
+    "containerDefinitions": [
+        {
+            "name": "express",
+            "image": "662315753219.dkr.ecr.us-east-1.amazonaws.com/billboard-express:latest",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 5000,
+                    "hostPort": 5000,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "GOOGLE_CALLBACK_URL",
+                    "value": "https://app.billboard.soutendijk.org"
+                },
+                {
+                    "name": "EXPRESS_PORT",
+                    "value": "5000"
+                },
+                {
+                    "name": "GOOGLE_CLIENT_ID",
+                    "value": "58263563127-t0sfinb2acpcs4k1m248f2h9hvg5mrqg.apps.googleusercontent.com"
+                }
+            ],
+            "environmentFiles": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "secrets": [
+                {
+                    "name": "GOOGLE_CLIENT_SECRET",
+                    "valueFrom": "arn:aws:ssm:us-east-1:662315753219:parameter/billboard/production/GOOGLE_CLIENT_SECRET"
+                },
+                {
+                    "name": "JWT_SECRET",
+                    "valueFrom": "arn:aws:ssm:us-east-1:662315753219:parameter/billboard/production/JWT_SECRET"
+                },
+                {
+                    "name": "JWT_SECRET_HTTP",
+                    "valueFrom": "arn:aws:ssm:us-east-1:662315753219:parameter/billboard/production/JWT_SECRET_HTTP"
+                },
+                {
+                    "name": "MONGO_URI",
+                    "valueFrom": "arn:aws:ssm:us-east-1:662315753219:parameter/billboard/production/MONGO_URI"
+                }
+            ],
+            "ulimits": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-create-group": "true",
+                    "awslogs-group": "/ecs/BillboardExpress",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                },
+                "secretOptions": []
+            },
+            "systemControls": []
+        },
+        {
+            "name": "caddy",
+            "image": "662315753219.dkr.ecr.us-east-1.amazonaws.com/billboard-web",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 8080,
+                    "hostPort": 8080,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "CADDY_PORT",
+                    "value": "8080"
+                }
+            ],
+            "environmentFiles": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-create-group": "true",
+                    "awslogs-group": "/ecs/BillboardCaddy",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                },
+                "secretOptions": []
+            },
+            "systemControls": []
+        }
+    ],
+    "executionRoleArn": "arn:aws:iam::662315753219:role/ecsTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "512",
+    "memory": "1024",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    }
+}

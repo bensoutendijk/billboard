@@ -44,7 +44,7 @@ app.use(routes);
 
 const server = http.createServer(app);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.EXPRESS_PORT || 5000;
 server.listen(PORT, () => {
   console.log('Listening on port ', PORT);
 });

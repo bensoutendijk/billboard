@@ -1,0 +1,33 @@
+http://:{$CADDY_PORT:$CADDY_PORT} {
+    root * /var/www
+    file_server
+
+    # Handle health check
+    handle /health {
+        respond "OK"
+    }
+
+    # Handle static assets: CSS, JS, images, etc.
+    @static {
+        file
+        path *.css *.js *.html *.htm *.jpg *.jpeg *.png *.svg *.gif *.json *.woff *.woff2 *.ttf *.ico
+    }
+    handle @static {
+        file_server
+    }
+
+    # Serve index.html for single-page app
+    @spa {
+        not file
+        not path /api/*
+    }
+    handle @spa {
+        rewrite * /index.html
+        file_server
+    }
+
+    # Reverse proxy requests to port 5000
+    handle /api/* {
+        reverse_proxy localhost:5000
+    }
+}
