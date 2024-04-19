@@ -32,8 +32,13 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            docker load -i /tmp/billboard-web.tar
-            docker load -i /tmp/billboard-api.tar
-            docker load -i /tmp/billboard-db.tar
-            cd /path/to/docker-compose
-            docker-compose up -d
+            export CADDY_PORT=$CADDY_PORT
+            export EXPRESS_PORT=$EXPRESS_PORT
+            export MONGO_URI=${{ secrets.MONGO_URI }}
+            export GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            export GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+            export GOOGLE_CALLBACK_URL=${{ secrets.GOOGLE_CALLBACK_URL }}
+            export JWT_SECRET=${{ secrets.JWT_SECRET }}
+            export JWT_SECRET_HTTP=${{ secrets.JWT_SECRET_HTTP }}
+            export CI=$CI
+            ./ops/run.sh

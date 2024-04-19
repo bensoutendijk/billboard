@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  api:
+    image: billboard-api:latest
+    ports:
+      - "${EXPRESS_PORT}:${EXPRESS_PORT}"
+    environment:
+      - EXPRESS_PORT=${EXPRESS_PORT}
+      - MONGO_URI=${MONGO_URI}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET_HTTP=${JWT_SECRET_HTTP}
+    working_dir: /app
+    command: sh -c 'node build/index.js'
+
+  web:
+    image: billboard-web:latest 
+    ports:
+      - "${CADDY_PORT}:${CADDY_PORT}"
+    environment:
+      - CADDY_PORT=${CADDY_PORT}
+
+  db:
+    image: billboard-db:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb:/data/db
+
+volumes:
+  mongodb:
