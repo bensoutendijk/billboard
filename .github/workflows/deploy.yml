@@ -35,18 +35,16 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            export CADDY_PORT=$CADDY_PORT
-            export EXPRESS_PORT=$EXPRESS_PORT
-            export MONGO_URI=${{ secrets.MONGO_URI }}
-            export GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-            export GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-            export GOOGLE_CALLBACK_URL=${{ secrets.GOOGLE_CALLBACK_URL }}
-            export JWT_SECRET=${{ secrets.JWT_SECRET }}
-            export JWT_SECRET_HTTP=${{ secrets.JWT_SECRET_HTTP }}
-            export CI=$CI
-
             docker load -i /tmp/billboard/billboard-web.tar
             docker load -i /tmp/billboard/billboard-api.tar
             docker load -i /tmp/billboard/billboard-db.tar
 
+            CADDY_PORT=$CADDY_PORT \
+            EXPRESS_PORT=$EXPRESS_PORT \
+            MONGO_URI=${{ secrets.MONGO_URI }} \
+            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }} \
+            GOOGLE_CALLBACK_URL=${{ secrets.GOOGLE_CALLBACK_URL }} \
+            JWT_SECRET=${{ secrets.JWT_SECRET }} \
+            JWT_SECRET_HTTP=${{ secrets.JWT_SECRET_HTTP }} \
             docker compose -f /tmp/billboard/compose.production.yml up -d
