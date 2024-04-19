@@ -25,3 +25,6 @@ yarn-error.log*
 
 # AWS
 .aws/credentials
+
+# Docker artifacts
+billboard-*.tar
