@@ -14,10 +14,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Download Docker image cache
+        id: cache-download
+        uses: actions/download-artifact@v2
+        with:
+          name: docker-image-cache
+
+      - name: Load Docker images from cache (if exists)
+        if: steps.cache-download.outputs.download-path
+        run: |
+          for file in billboard-*.tar; do
+            if [ -f "$file" ]; then
+              echo "Loading $file from cache"
+              docker load -i "$file"
+            fi
+          done
+
       - name: Build and Save Docker Images
         run: |
           ops/build.sh
           chmod 644 billboard-*.tar
+
+      - name: Upload Docker image cache
+        uses: actions/upload-artifact@v2
+        with:
+          name: docker-image-cache
+          path: |
+            billboard-*.tar
 
       - name: Transfer Docker Images to Server
         uses: appleboy/scp-action@master
@@ -44,4 +67,4 @@ jobs:
             export JWT_SECRET=${{ secrets.JWT_SECRET }}
             export JWT_SECRET_HTTP=${{ secrets.JWT_SECRET_HTTP }}
             export CI=$CI
-            ./ops/run.sh
+            ops/run.sh
