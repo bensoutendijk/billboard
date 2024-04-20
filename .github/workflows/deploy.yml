@@ -20,41 +20,41 @@ jobs:
     environment:
       name: production
     steps:
-      # - name: Checkout code
-      #   uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      # - name: Download Existing Docker Images
-      #   uses: actions/download-artifact@v2
-      #   with:
-      #     name: docker-images
-      #   continue-on-error: true
+      - name: Download Existing Docker Images
+        uses: actions/download-artifact@v2
+        with:
+          name: docker-images
+        continue-on-error: true
 
-      # - name: Load Downloaded Docker Images
-      #   run: |
-      #     for file in *.tar; do
-      #       [ -f "$file" ] && docker load -i $file || echo "No image file $file found, skipping..."
-      #     done
+      - name: Load Downloaded Docker Images
+        run: |
+          for file in *.tar; do
+            [ -f "$file" ] && docker load -i $file || echo "No image file $file found, skipping..."
+          done
 
-      # - name: Build and Save Docker Images
-      #   run: |
-      #     ./ops/build.sh
-      #     chmod 644 *.tar
+      - name: Build and Save Docker Images
+        run: |
+          ./ops/build.sh
+          chmod 644 *.tar
 
-      # - name: Upload New Docker Images
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: docker-images
-      #     path: |
-      #       *.tar
+      - name: Upload New Docker Images
+        uses: actions/upload-artifact@v2
+        with:
+          name: docker-images
+          path: |
+            *.tar
 
-      # - name: Transfer Docker Files to Server
-      #   uses: appleboy/scp-action@master
-      #   with:
-      #     host: ${{ secrets.SERVER_HOST }}
-      #     username: ${{ secrets.SERVER_USER }}
-      #     key: ${{ secrets.SSH_KEY }}
-      #     source: "billboard-*.tar,compose.production.yml"
-      #     target: "/tmp/billboard"
+      - name: Transfer Docker Files to Server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "billboard-*.tar,compose.production.yml"
+          target: "/tmp/billboard"
 
       - name: Load Docker Images on Server and Deploy
         uses: appleboy/ssh-action@master
