@@ -47,13 +47,5 @@ jobs:
             docker load -i /tmp/billboard/billboard-web.tar
             docker load -i /tmp/billboard/billboard-api.tar
             docker load -i /tmp/billboard/billboard-db.tar
-
-            CADDY_PORT=$CADDY_PORT \
-            EXPRESS_PORT=$EXPRESS_PORT \
-            MONGO_URI=$MONGO_URI \
-            GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
-            GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET \
-            GOOGLE_CALLBACK_URL=$GOOGLE_CALLBACK_URL \
-            JWT_SECRET=$JWT_SECRET \
-            JWT_SECRET_HTTP=$JWT_SECRET_HTTP \
+            echo "CADDY_PORT=$CADDY_PORT, EXPRESS_PORT=$EXPRESS_PORT"
             docker compose -f /tmp/billboard/compose.production.yml up -d
