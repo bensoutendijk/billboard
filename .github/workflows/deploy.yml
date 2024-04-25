@@ -53,7 +53,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: "billboard-*.tar,compose.production.yml"
+          source: "billboard-*.tar"
           target: "/tmp/billboard"
 
       - name: Load Docker Images on Server and Deploy
@@ -68,12 +68,9 @@ jobs:
             docker load -i /tmp/billboard/billboard-api.tar
             docker load -i /tmp/billboard/billboard-db.tar
 
-            # docker run -d --name billboard-db \
-            #   -p "27017:27017" \
-            #   --restart always \
-            #   billboard-db:latest
+            docker network create --driver bridge billboard-default || true
 
-            docker run -d --name billboard-api \
+            docker run -d --name billboard-api --network billboard-default \
               -p "$EXPRESS_PORT:$EXPRESS_PORT" \
               -e EXPRESS_PORT="$EXPRESS_PORT" \
               -e MONGO_URI="$MONGO_URI" \
@@ -85,7 +82,7 @@ jobs:
               --restart always \
               billboard-api:latest
             
-            docker run -d --name billboard-web \
+            docker run -d --name billboard-web --network billboard-default \
               -p "$CADDY_PORT:$CADDY_PORT" \
               -e CADDY_PORT="$CADDY_PORT" \
               --restart always \
