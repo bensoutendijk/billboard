@@ -68,12 +68,25 @@ jobs:
             docker load -i /tmp/billboard/billboard-api.tar
             docker load -i /tmp/billboard/billboard-db.tar
 
-            CADDY_PORT="$CADDY_PORT"
-            EXPRESS_PORT="$EXPRESS_PORT"
-            MONGO_URI="$MONGO_URI"
-            GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID"
-            GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET"
-            GOOGLE_CALLBACK_URL="$GOOGLE_CALLBACK_URL"
-            JWT_SECRET="$JWT_SECRET"
-            JWT_SECRET_HTTP="$JWT_SECRET_HTTP"
-            docker compose -f /tmp/billboard/compose.production.yml up -d
+            # docker run -d --name billboard-db \
+            #   -p "27017:27017" \
+            #   --restart always \
+            #   billboard-db:latest
+
+            docker run -d --name billboard-api \
+              -p "$EXPRESS_PORT:$EXPRESS_PORT" \
+              -e EXPRESS_PORT="$EXPRESS_PORT" \
+              -e MONGO_URI="$MONGO_URI" \
+              -e GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+              -e GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+              -e GOOGLE_CALLBACK_URL="$GOOGLE_CALLBACK_URL" \
+              -e JWT_SECRET="$JWT_SECRET" \
+              -e JWT_SECRET_HTTP="$JWT_SECRET_HTTP" \
+              --restart always \
+              billboard-api:latest
+            
+            docker run -d --name billboard-web \
+              -p "$CADDY_PORT:$CADDY_PORT" \
+              -e CADDY_PORT="$CADDY_PORT" \
+              --restart always \
+              billboard-web:latest
