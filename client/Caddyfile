@@ -28,6 +28,6 @@ http://:{$CADDY_PORT:$CADDY_PORT} {
 
     # Reverse proxy requests to port 5000
     handle /api/* {
-        reverse_proxy api:5000
+        reverse_proxy billboard-api:5000
     }
 }
