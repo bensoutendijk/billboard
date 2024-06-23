@@ -70,20 +70,37 @@ jobs:
 
             docker network create --driver bridge billboard-default || true
 
-            docker run -d --name billboard-api --network billboard-default \
-              -p "$EXPRESS_PORT:$EXPRESS_PORT" \
+            # Function to update and restart a container
+            update_container() {
+              local name=$1
+              local image=$2
+              local port=$3
+              local env_vars="${@:4}"
+
+              if docker ps -a --format '{{.Names}}' | grep -q "^$name$"; then
+                echo "Stopping and removing existing $name container"
+                docker stop $name
+                docker rm $name
+              fi
+
+              echo "Starting new $name container"
+              docker run -d --name $name --network billboard-default \
+                -p "$port:$port" \
+                $env_vars \
+                --restart always \
+                $image
+            }
+
+            # Update and restart billboard-api
+            update_container billboard-api billboard-api:latest "$EXPRESS_PORT" \
               -e EXPRESS_PORT="$EXPRESS_PORT" \
               -e MONGO_URI="$MONGO_URI" \
               -e GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
               -e GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
               -e GOOGLE_CALLBACK_URL="$GOOGLE_CALLBACK_URL" \
               -e JWT_SECRET="$JWT_SECRET" \
-              -e JWT_SECRET_HTTP="$JWT_SECRET_HTTP" \
-              --restart always \
-              billboard-api:latest
-            
-            docker run -d --name billboard-web --network billboard-default \
-              -p "$CADDY_PORT:$CADDY_PORT" \
-              -e CADDY_PORT="$CADDY_PORT" \
-              --restart always \
-              billboard-web:latest
+              -e JWT_SECRET_HTTP="$JWT_SECRET_HTTP"
+
+            # Update and restart billboard-web
+            update_container billboard-web billboard-web:latest "$CADDY_PORT" \
+              -e CADDY_PORT="$CADDY_PORT"
