@@ -64,43 +64,64 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           envs: CADDY_PORT,EXPRESS_PORT,MONGO_URI,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_CALLBACK_URL,JWT_SECRET,JWT_SECRET_HTTP
           script: |
-            docker load -i /tmp/billboard/billboard-web.tar
-            docker load -i /tmp/billboard/billboard-api.tar
-            docker load -i /tmp/billboard/billboard-db.tar
-
-            docker network create --driver bridge billboard-default || true
-
-            # Function to update and restart a container
-            update_container() {
-              local name=$1
-              local image=$2
-              local port=$3
-              local env_vars="${@:4}"
-
-              if docker ps -a --format '{{.Names}}' | grep -q "^$name$"; then
-                echo "Stopping and removing existing $name container"
-                docker stop $name
-                docker rm $name
+            # Stop and remove existing containers
+            for container in billboard-web billboard-api billboard-db; do
+              if docker ps -a --format '{{.Names}}' | grep -q "^$container$"; then
+                echo "Stopping and removing existing $container container"
+                docker stop $container
+                docker rm $container
               fi
+            done
 
-              echo "Starting new $name container"
-              docker run -d --name $name --network billboard-default \
-                -p "$port:$port" \
-                $env_vars \
-                --restart always \
-                $image
-            }
+            # Remove existing network
+            if docker network ls --format '{{.Name}}' | grep -q "^billboard-default$"; then
+              echo "Removing existing billboard-default network"
+              docker network rm billboard-default
+            fi
 
-            # Update and restart billboard-api
-            update_container billboard-api billboard-api:latest "$EXPRESS_PORT" \
+            # Remove existing images
+            for image in billboard-web billboard-api billboard-db; do
+              if docker images --format '{{.Repository}}' | grep -q "^$image$"; then
+                echo "Removing existing $image image"
+                docker rmi $image
+              fi
+            done
+
+            # Load new images
+            for image in billboard-web billboard-api billboard-db; do
+              echo "Loading new $image image"
+              docker load -i /tmp/billboard/$image.tar
+            done
+
+            # Create new network
+            echo "Creating new billboard-default network"
+            docker network create --driver bridge billboard-default
+
+            # Start billboard-api
+            echo "Starting new billboard-api container"
+            docker run -d --name billboard-api --network billboard-default \
+              -p "$EXPRESS_PORT:$EXPRESS_PORT" \
               -e EXPRESS_PORT="$EXPRESS_PORT" \
               -e MONGO_URI="$MONGO_URI" \
               -e GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
               -e GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
               -e GOOGLE_CALLBACK_URL="$GOOGLE_CALLBACK_URL" \
               -e JWT_SECRET="$JWT_SECRET" \
-              -e JWT_SECRET_HTTP="$JWT_SECRET_HTTP"
+              -e JWT_SECRET_HTTP="$JWT_SECRET_HTTP" \
+              --restart always \
+              billboard-api:latest
 
-            # Update and restart billboard-web
-            update_container billboard-web billboard-web:latest "$CADDY_PORT" \
-              -e CADDY_PORT="$CADDY_PORT"
+            # Start billboard-web
+            echo "Starting new billboard-web container"
+            docker run -d --name billboard-web --network billboard-default \
+              -p "$CADDY_PORT:$CADDY_PORT" \
+              -e CADDY_PORT="$CADDY_PORT" \
+              --restart always \
+              billboard-web:latest
+
+            # Start billboard-db
+            # echo "Starting new billboard-db container"
+            # docker run -d --name billboard-db --network billboard-default \
+            #   -p "27017:27017" \
+            #   --restart always \
+            #   billboard-db:latest
