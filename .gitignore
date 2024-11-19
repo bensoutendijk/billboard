@@ -29,3 +29,8 @@ yarn-error.log*
 # Docker artifacts
 billboard-*.tar
 .aider*
+
+# Terraform
+.terraform*
+*.tfstate
+*.tfstate.*
