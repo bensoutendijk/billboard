@@ -12,3 +12,9 @@ variable "subnet_ids" {
   type        = list(string)
   description = "Subnet IDs"
 }
+
+variable "api_version" {
+  type        = string
+  description = "API version"
+  default     = "v1"
+}
