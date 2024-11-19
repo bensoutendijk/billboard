@@ -34,3 +34,4 @@ billboard-*.tar
 .terraform*
 *.tfstate
 *.tfstate.*
+**/lambda/files
