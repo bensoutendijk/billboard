@@ -35,3 +35,4 @@ billboard-*.tar
 *.tfstate
 *.tfstate.*
 **/lambda/files
+.vscode/settings.json
