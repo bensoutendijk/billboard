@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Link, useHistory, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { Link, useHistory, useParams } from 'react-router-dom';
 
-import { RootState } from '../../store';
-import { deleteBoard, updateBoard, updateBoardForm } from '../../store/boards/actions';
 import Nav from 'react-bootstrap/Nav';
+import { RootState } from '../../store';
+import { deleteBoard, updateBoardForm } from '../../store/boards/actions';
 
 function BoardSettings() {
   const params: { boardid: string } = useParams();
@@ -21,7 +21,7 @@ function BoardSettings() {
     event.preventDefault();
 
     if (board) {
-      dispatch(deleteBoard(board._id));
+      dispatch(deleteBoard(board.id));
 
       history.push('/boards');
     }
@@ -32,7 +32,7 @@ function BoardSettings() {
       return;
     }
 
-    const boardForm = boards.form[board._id];
+    const boardForm = boards.form[board.id];
     if (typeof boardForm === 'undefined') {
       return;
     }

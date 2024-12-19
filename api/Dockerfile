@@ -1,17 +1,18 @@
-FROM node:12-alpine AS api
+FROM node:20-alpine AS api
 
 WORKDIR /app
 
-# Copy the source code and package.json from the ./api directory
-COPY ./package.json ./package-lock.json ./
-COPY ./src ./src
-COPY ./.eslintrc ./
-COPY ./tsconfig.json ./
-
 # Install dependencies
+COPY ./package.json ./package-lock.json ./
 RUN npm install
+
+COPY ./src ./src
+COPY ./eslint.config.mjs ./
+COPY ./tsconfig.json ./
 
 # Build the API bundle
 RUN npm run build
 
-CMD [ "node", "build/index.js" ]
+EXPOSE 8080
+
+CMD [ "node", "build/app.js" ]

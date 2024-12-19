@@ -1,0 +1,58 @@
+services:
+  client:
+    image: node:12-alpine
+    volumes:
+      - ./client:/app
+    ports: 
+      - 3000:3000
+    env_file:
+      - .env
+    working_dir: /app
+    entrypoint: ./entrypoint.sh
+    stdin_open: true
+  api:
+    build:
+      context: api
+    ports:
+      - "$EXPRESS_PORT:$EXPRESS_PORT"
+    environment:
+      - NODE_ENV=development
+      - PORT=$EXPRESS_PORT
+      # Database
+      - DATABASE_URL=$DATABASE_URL
+      - DATABASE_POOL_MIN=2
+      - DATABASE_POOL_MAX=10
+      - DATABASE_TIMEOUT=30000
+      # JWT
+      - JWT_SECRET=$JWT_SECRET
+      - JWT_EXPIRY=24h
+      # Logging
+      - LOG_LEVEL=debug
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    command: npm run dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=$POSTGRES_USER
+      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+      - POSTGRES_DB=$POSTGRES_DB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

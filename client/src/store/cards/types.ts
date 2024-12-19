@@ -14,7 +14,7 @@ export type CardsState = {
 export type CardsError = string;
 
 export interface Card {
-  _id: string;
+  id: string;
   title: string;
   categoryid: string;
   boardid: string;
@@ -23,4 +23,4 @@ export interface Card {
   archived: boolean;
 }
 
-export type CardForm = Pick<Card, '_id' | 'title' | 'categoryid' >;
+export type CardForm = Pick<Card, "id" | "title" | "categoryid">;

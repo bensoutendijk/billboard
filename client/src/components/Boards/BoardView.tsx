@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
 import { DragDropContext, Droppable, DropResult } from 'react-beautiful-dnd';
+import { Link, useParams } from 'react-router-dom';
 
 import update from 'immutability-helper';
 
+import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Navbar from 'react-bootstrap/Navbar';
-import Button from 'react-bootstrap/Button';
 
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
-import { updateBoard, updateBoardForm, fetchBoard } from '../../store/boards/actions';
+import { fetchBoard, updateBoard, updateBoardForm } from '../../store/boards/actions';
 
-import CategoryList from '../Categories/CategoryList';
 import { BoardForm } from '../../store/boards/types';
 import { updateCard } from '../../store/cards/actions';
-import { updateCategoryForm, updateCategory } from '../../store/categories/actions';
+import { updateCategory, updateCategoryForm } from '../../store/categories/actions';
+import CategoryList from '../Categories/CategoryList';
 
 function BoardView() {
   const params: { boardid: string } = useParams();
@@ -121,7 +121,7 @@ function BoardView() {
       return;
     }
 
-    const boardForm = boards.form[board._id];
+    const boardForm = boards.form[board.id];
     if (typeof boardForm === 'undefined') {
       return;
     }
@@ -146,7 +146,7 @@ function BoardView() {
       return;
     }
 
-    const boardForm = boards.form[board._id];
+    const boardForm = boards.form[board.id];
     if (typeof boardForm === 'undefined') {
       return;
     }
@@ -160,7 +160,7 @@ function BoardView() {
     return null;
   }
 
-  if (typeof boards.form[board._id] === 'undefined') {
+  if (typeof boards.form[board.id] === 'undefined') {
     return null;
   }
 
@@ -174,7 +174,7 @@ function BoardView() {
                 autoFocus
                 name="title"
                 size="lg"
-                value={boards.form[board._id]!.title}
+                value={boards.form[board.id]!.title}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
@@ -187,10 +187,10 @@ function BoardView() {
               style={{ color: 'white', fontWeight: 700 }}
               onClick={() => setFormOpen(true)}
             >
-              <span>{boards.form[board._id]!.title}</span>
+              <span>{boards.form[board.id]!.title}</span>
             </Button>
           )}
-          <Link to={`/boards/${board._id}/settings`} className="BoardEdit-btn btn btn-lg">
+          <Link to={`/boards/${board.id}/settings`} className="BoardEdit-btn btn btn-lg">
             <i className="fal fa-cog"></i>
           </Link>
         </Navbar>

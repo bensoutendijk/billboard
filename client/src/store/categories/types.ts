@@ -14,7 +14,7 @@ export type CategoriesState = {
 export type CategoriesError = string;
 
 export interface Category {
-  _id: string;
+  id: string;
   title: string;
   cards: string[];
   createdOn: Date;
@@ -23,4 +23,4 @@ export interface Category {
   archived: boolean;
 }
 
-export type CategoryForm = Pick<Category, '_id' | 'title' | 'cards' >;
+export type CategoryForm = Pick<Category, "id" | "title" | "cards">;

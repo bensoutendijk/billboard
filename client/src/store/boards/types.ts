@@ -1,5 +1,5 @@
-import { Category } from '../categories/types';
-import { Card } from '../cards/types';
+import { Card } from "../cards/types";
+import { Category } from "../categories/types";
 
 export type BoardsState = {
   fetched: boolean;
@@ -18,7 +18,7 @@ export type BoardsState = {
 export type BoardsError = string;
 
 export interface Board {
-  _id: string;
+  id: string;
   title: string;
   createdOn: Date;
   updatedOn: Date;
@@ -36,4 +36,4 @@ export interface BoardComplete {
   cards: Card[];
 }
 
-export type BoardForm = Pick<Board, '_id' | 'title' | 'categories'>;
+export type BoardForm = Pick<Board, "id" | "title" | "categories">;

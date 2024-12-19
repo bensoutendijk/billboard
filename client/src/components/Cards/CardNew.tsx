@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Card from 'react-bootstrap/Card';
+import Form from 'react-bootstrap/Form';
 
 import { useDispatch } from 'react-redux';
 import { createCard } from '../../store/cards/actions';
@@ -42,7 +42,7 @@ const CardNew: React.FC<CardNewProps> = function({ categoryid }) {
 
   const submitForm = function() {
     const cardForm = {
-      _id: '*',
+      id: '*',
       title,
       boardid,
       categoryid,

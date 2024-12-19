@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
 import clsx from 'clsx';
-import { Droppable, Draggable } from 'react-beautiful-dnd';
+import React, { useState } from 'react';
+import { Draggable, Droppable } from 'react-beautiful-dnd';
 
 import Card from 'react-bootstrap/Card';
 
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { deleteCategory } from '../../store/categories/actions';
 
@@ -37,7 +37,7 @@ const CategoryView: React.FC<CategoryViewProps> = function({ categoryid, index }
       dropdown: false,
     });
 
-    dispatch(deleteCategory(category._id));
+    dispatch(deleteCategory(category.id));
   };
 
   if (!categoryForm) {

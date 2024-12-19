@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 
-import Modal from 'react-bootstrap/Modal';
-import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
+import Modal from 'react-bootstrap/Modal';
 
 import { useDispatch } from 'react-redux';
 
-import BoardList from './BoardList';
 import { createBoard } from '../../store/boards/actions';
+import BoardList from './BoardList';
 
 function BoardNew() {
   const [title, setTitle] = useState('');
@@ -24,7 +24,7 @@ function BoardNew() {
     e.preventDefault();
 
     const boardForm = {
-      _id: '*',
+      id: '*',
       title,
       categories: [],
       cards: [],

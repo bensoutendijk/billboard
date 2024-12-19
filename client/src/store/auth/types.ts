@@ -1,6 +1,6 @@
-export const REQUEST_AUTH = 'REQUEST_AUTH';
-export const RECIEVE_AUTH = 'RECIEVE_AUTH';
-export const REJECT_AUTH = 'REJECT_AUTH';
+export const REQUEST_AUTH = "REQUEST_AUTH";
+export const RECIEVE_AUTH = "RECIEVE_AUTH";
+export const REJECT_AUTH = "REJECT_AUTH";
 
 export type AuthError = {
   email?: string;
@@ -9,8 +9,13 @@ export type AuthError = {
   authentication?: string;
 };
 
-export type AuthPermission = 'admin' | 'tester' | 'default';
-export type AuthService = 'mixer' | 'twitch' | 'instagram' | 'facebook' | 'twitter';
+export type AuthPermission = "admin" | "tester" | "default";
+export type AuthService =
+  | "mixer"
+  | "twitch"
+  | "instagram"
+  | "facebook"
+  | "twitter";
 
 export interface UsersState {
   fetched: boolean;
@@ -20,7 +25,7 @@ export interface UsersState {
 }
 
 export interface LocalUser {
-  _id: any;
+  id: any;
   email: string;
   permissions: AuthPermission[];
   services: AuthService[];
@@ -46,8 +51,4 @@ interface RejectAuth {
   payload: AuthError;
 }
 
-export type AuthActionTypes = (
-  RequestAuth |
-  RecieveAuth |
-  RejectAuth
-);
+export type AuthActionTypes = RequestAuth | RecieveAuth | RejectAuth;

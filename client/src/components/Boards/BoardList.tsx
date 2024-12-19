@@ -1,6 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { Link } from 'react-router-dom';
 
 import { RootState } from '../../store';
 
@@ -19,7 +19,7 @@ function BoardList() {
         }
 
         return (
-          <Link key={board._id} to={`/boards/${board._id}`} className="BoardList-button btn btn-dark">
+          <Link key={board.id} to={`/boards/${board.id}`} className="BoardList-button btn btn-dark">
             <h6>{board.title}</h6>
           </Link>
         );
