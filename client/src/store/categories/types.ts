@@ -1,3 +1,5 @@
+import { Card } from "../cards/types";
+
 export type CategoriesState = {
   fetched: boolean;
   fetching: boolean;
@@ -16,7 +18,7 @@ export type CategoriesError = string;
 export interface Category {
   id: string;
   title: string;
-  cards: string[];
+  cards: Card[];
   createdOn: Date;
   updatedOn: Date;
   boardid: string;

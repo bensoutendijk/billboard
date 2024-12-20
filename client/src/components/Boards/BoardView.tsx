@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, DropResult } from 'react-beautiful-dnd';
 import { Link, useParams } from 'react-router-dom';
 
-import update from 'immutability-helper';
 
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -12,9 +11,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { fetchBoard, updateBoard, updateBoardForm } from '../../store/boards/actions';
 
-import { BoardForm } from '../../store/boards/types';
-import { updateCard } from '../../store/cards/actions';
-import { updateCategory, updateCategoryForm } from '../../store/categories/actions';
 import CategoryList from '../Categories/CategoryList';
 
 function BoardView() {
@@ -44,76 +40,76 @@ function BoardView() {
       return;
     }
 
-    if (res.type === 'category') {
-      const originIndex = board.categories.indexOf(res.draggableId);
-      const destinationIndex = res.destination.index;
+    // if (res.type === 'category') {
+    //   const originIndex = board.categories.indexOf(res.draggableId);
+    //   const destinationIndex = res.destination.index;
 
-      const boardForm: BoardForm = {
-        ...board,
-        categories: update(board.categories, {
-          $splice: [
-            [originIndex, 1],
-            [destinationIndex, 0, res.draggableId],
-          ],
-        }),
-      };
+    //   const boardForm: BoardForm = {
+    //     ...board,
+    //     categories: update(board.categories, {
+    //       $splice: [
+    //         [originIndex, 1],
+    //         [destinationIndex, 0, res.draggableId],
+    //       ],
+    //     }),
+    //   };
 
-      dispatch(updateBoardForm(boardForm));
-      dispatch(updateBoard(boardForm));
-    }
+    //   dispatch(updateBoardForm(boardForm));
+    //   dispatch(updateBoard(boardForm));
+    // }
 
-    if (res.type === 'card') {
-      const card = cards.byId[res.draggableId];
-      let sourceCategory = categories.byId[res.source.droppableId];
-      let destinationCategory = categories.byId[res.destination.droppableId];
+    // if (res.type === 'card') {
+    //   const card = cards.byId[res.draggableId];
+    //   let sourceCategory = categories.byId[res.source.droppableId];
+    //   let destinationCategory = categories.byId[res.destination.droppableId];
 
-      if (!card || !sourceCategory || !destinationCategory) {
-        return;
-      }
+    //   if (!card || !sourceCategory || !destinationCategory) {
+    //     return;
+    //   }
 
-      if (sourceCategory === destinationCategory) { // Same source and destination category
-        sourceCategory = {
-          ...sourceCategory,
-          cards: update(sourceCategory.cards, {
-            $splice: [
-              [res.source.index, 1],
-              [res.destination.index, 0, res.draggableId],
-            ],
-          }),
-        };
+    //   if (sourceCategory === destinationCategory) { // Same source and destination category
+    //     sourceCategory = {
+    //       ...sourceCategory,
+    //       cards: update(sourceCategory.cards, {
+    //         $splice: [
+    //           [res.source.index, 1],
+    //           [res.destination.index, 0, res.draggableId],
+    //         ],
+    //       }),
+    //     };
 
-        dispatch(updateCategoryForm(sourceCategory));
-        dispatch(updateCategory(sourceCategory));
-      } else {
-        sourceCategory = {
-          ...sourceCategory,
-          cards: update(sourceCategory.cards, {
-            $splice: [
-              [res.source.index, 1],
-            ],
-          }),
-        };
+    //     dispatch(updateCategoryForm(sourceCategory));
+    //     dispatch(updateCategory(sourceCategory));
+    //   } else {
+    //     sourceCategory = {
+    //       ...sourceCategory,
+    //       cards: update(sourceCategory.cards, {
+    //         $splice: [
+    //           [res.source.index, 1],
+    //         ],
+    //       }),
+    //     };
 
-        destinationCategory = {
-          ...destinationCategory,
-          cards: update(destinationCategory.cards, {
-            $splice: [
-              [res.destination.index, 0, res.draggableId],
-            ],
-          }),
-        };
+    //     destinationCategory = {
+    //       ...destinationCategory,
+    //       cards: update(destinationCategory.cards, {
+    //         $splice: [
+    //           [res.destination.index, 0, res.draggableId],
+    //         ],
+    //       }),
+    //     };
 
-        dispatch(updateCategoryForm(sourceCategory));
-        dispatch(updateCategoryForm(destinationCategory));
-        dispatch(updateCategory(sourceCategory));
-        dispatch(updateCategory(destinationCategory));
-      }
+    //     dispatch(updateCategoryForm(sourceCategory));
+    //     dispatch(updateCategoryForm(destinationCategory));
+    //     dispatch(updateCategory(sourceCategory));
+    //     dispatch(updateCategory(destinationCategory));
+    //   }
 
-      dispatch(updateCard({
-        ...card,
-        categoryid: res.destination.droppableId,
-      }));
-    }
+    //   dispatch(updateCard({
+    //     ...card,
+    //     categoryid: res.destination.droppableId,
+    //   }));
+    // }
   };
 
   const handleChange = function(event: React.ChangeEvent<HTMLInputElement>): void {

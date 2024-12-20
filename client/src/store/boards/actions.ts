@@ -5,7 +5,7 @@ import { createAction } from "@reduxjs/toolkit";
 import { AppDispatch } from "..";
 import { receiveCards } from "../cards/actions";
 import { receiveCategories } from "../categories/actions";
-import { Board, BoardComplete, BoardForm, BoardsError } from "./types";
+import { Board, BoardForm, BoardsError } from "./types";
 
 export const createBoardPending = createAction("CREATE_BOARD_PENDING");
 export const createBoardSuccess = createAction<Board>("CREATE_BOARD_SUCCESS");
@@ -65,12 +65,10 @@ export const fetchBoard =
     dispatch(getBoardPending());
     try {
       if (!boardid) throw new Error("No board ID provided");
-      const { data } = await axios.get<BoardComplete>(
-        `/api/v1/boards/${boardid}`
-      );
-      dispatch(getBoardSuccess(data.board));
+      const { data } = await axios.get<Board>(`/api/v1/boards/${boardid}`);
+      dispatch(getBoardSuccess(data));
       dispatch(receiveCategories(data.categories));
-      dispatch(receiveCards(data.cards));
+      dispatch(receiveCards(data.categories.flatMap((c) => c.cards)));
     } catch (error) {
       dispatch(getBoardFailed(error.message));
     }

@@ -26,7 +26,7 @@ export interface Board {
     id: string;
     scopes: string[];
   }[];
-  categories: string[];
+  categories: Category[];
   archived: boolean;
 }
 

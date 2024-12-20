@@ -4,7 +4,7 @@ import { createCreateBoardHandler } from "../handlers/boards/createBoardHandler"
 import { createGetBoardsHandler } from "../handlers/boards/getBoardsHandler";
 // import { createAddBoardMemberHandler } from "../handlers/boards/addBoardMember";
 // import { createDeleteBoardHandler } from "../handlers/boards/deleteBoard";
-// import { createGetBoardHandler } from "../handlers/boards/getBoard";
+import { createGetBoardHandler } from "../handlers/boards/getBoardById";
 // import { createRemoveBoardMemberHandler } from "../handlers/boards/removeBoardMember";
 // import { createUpdateBoardHandler } from "../handlers/boards/updateBoard";
 // import { createUpdateMemberPermissionsHandler } from "../handlers/boards/updateMemberPermissions";
@@ -19,7 +19,7 @@ router.use(validateAuthToken);
 
 // Board CRUD operations
 router.get("/", createGetBoardsHandler(boardService));
-// router.get("/:boardId", createGetBoardHandler(boardService));
+router.get("/:boardId", createGetBoardHandler(boardService));
 router.post("/", createCreateBoardHandler(boardService));
 // router.patch("/:boardId", createUpdateBoardHandler(boardService));
 // router.delete("/:boardId", createDeleteBoardHandler(boardService));

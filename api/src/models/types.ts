@@ -13,6 +13,7 @@ export interface Board {
   created_at: Date;
   updated_at: Date;
   archived: boolean;
+  categories?: Category[];
 }
 
 export interface BoardMember {
@@ -30,6 +31,7 @@ export interface Category {
   created_at: Date;
   updated_at: Date;
   archived: boolean;
+  cards?: Card[];
 }
 
 export interface Card {

@@ -3,8 +3,8 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 
-import CategoryView from './CategoryView';
 import CategoryNew from './CategoryNew';
+import CategoryView from './CategoryView';
 
 const CategoryList: React.FC<CategoryListProps> = function({ boardid, placeholder, innerRef}) {
   const boardForm = useSelector((state: RootState) => state.boards.form[boardid]);
@@ -15,9 +15,9 @@ const CategoryList: React.FC<CategoryListProps> = function({ boardid, placeholde
 
   return (
     <div className="CategoryList" ref={innerRef}>
-      {boardForm.categories.map((id, index) => {
+      {boardForm.categories.map((c, index) => {
         return (
-          <CategoryView key={id} categoryid={id} index={index} />
+          <CategoryView key={c.id} categoryid={c.id} index={index} />
         );
       })}
       {placeholder}

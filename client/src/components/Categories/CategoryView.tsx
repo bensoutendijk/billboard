@@ -68,7 +68,7 @@ const CategoryView: React.FC<CategoryViewProps> = function({ categoryid, index }
             <Card.Body>
               <Droppable droppableId={categoryid} type="card">
                 {(provided) => (
-                  <CardList cards={categoryForm.cards} innerRef={provided.innerRef} placeholder={provided.placeholder} {...provided.droppableProps} />
+                  <CardList cards={categoryForm.cards.map(c => c.id)} innerRef={provided.innerRef} placeholder={provided.placeholder} {...provided.droppableProps} />
                 )}
               </Droppable>
               <CardNew categoryid={categoryid} />
