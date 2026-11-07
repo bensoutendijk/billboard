@@ -1,7 +1,7 @@
 # Billboard
-What needs Ben across his Claude Code sessions, on one page. README.md says what's on it.
+A view over Ben's work with Claude Code sessions on boris. README.md says where it stands.
 
-- The design is the "Billboard Mocks" artifact (https://claude.ai/artifact/UbyQP4gmaWyhihaCU8i1S9), split into `index.html`, `shell.js`, one file per list (`needs.js`, `tryit.js`, `left.js`, `running.js`, `shipped.js`), `data.js` and `demo.js`. Each list file's `LEDGER` says what's still to build.
-- Nothing is built yet. It will run on boris as a service, reachable only from Ben's tailnet (Ben, 2026-11-07): it reads session transcripts, `~/.claude/sessions`, telemetry and `gh` there. Not AWS. How answers get back into a session is undecided; until then the page links to the session.
+- No design yet. Don't propose screens or lists from earlier drafts: the first step is going over real designs from real apps with Ben, then mocking in the "Billboard Mocks" artifact (https://claude.ai/artifact/UbyQP4gmaWyhihaCU8i1S9).
+- It will run on boris as a service, reachable only from Ben's tailnet (Ben, 2026-11-07). Not AWS.
 - The old Kanban app (React, Express, MongoDB, deployed to boris over SSH) is at the tag `kanban-v1`. Don't bring it back.
 - CI's only PR check is the Gitleaks `secrets` job (`.github/workflows/secrets.yml`).
