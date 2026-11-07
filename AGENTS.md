@@ -13,5 +13,5 @@ A view over Ben's work with Claude Code sessions on boris. README.md says where 
 
 ## Mock
 "Billboard Mocks": https://claude.ai/artifact/UbyQP4gmaWyhihaCU8i1S9
-- `index.html` (styles and markup), `data.js` (example data), one file per feature: `today.js` (the headline and what's new), `waiting.js` (Waiting on you), `apps.js` (app lines and an app's items), `items.js` (In flight, an item's page, recently dropped), `health.js` (reports Billboard couldn't read), `pushes.js` (the version-1 pushes), then `demo.js` and `shell.js`.
+- `index.html` (styles and markup), `data.js` (example data), one file per tab or feature: `today.js` (the Today tab: overnight, what waits on Ben, what changed), `work.js` (the Work tab: order cards with their tracks, recently hidden), `apps.js` (the Apps tab and an app's page), `items.js` (an item's page, the track, hiding), `health.js` (reports Billboard couldn't read), `pushes.js` (the version-1 pushes), then `demo.js` and `shell.js` (tab bar, sheets, start-up).
 - No side-by-side script yet.
