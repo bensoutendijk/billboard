@@ -6,6 +6,7 @@ A view over Ben's work with Claude Code sessions on boris. README.md says where 
   - It covers boris sessions only, and nothing from before Agent OS lite (2026-11-02).
   - It has no chat: no sending answers or notes into sessions. Every item opens its session in the Claude app. Billboard writes only its own small state (done, works).
   - No hiding: only finished work leaves on its own; anything unfinished stays in the way.
+  - It brings the telemetry dashboards' value into the app; Ben won't open Grafana.
   - A session list is table stakes, not the point; Ben wants something beyond the Claude app's list.
   - Code, PRs and CI/CD live in GitHub (a deploy can run from Actions on a runner on boris). The data it joins (sessions, questions, PRs, deploys, incidents, cost) stays on boris, and the page is reachable only from Ben's tailnet. Not AWS.
 - The mock, once there is one, is laid out as the `mock` skill says from its first screen: `index.html`, `data.js`, a file per feature with its `LEDGER`, `demo.js`, `shell.js`. Publish only the files you change.
@@ -14,5 +15,5 @@ A view over Ben's work with Claude Code sessions on boris. README.md says where 
 
 ## Mock
 "Billboard Mocks": https://claude.ai/artifact/UbyQP4gmaWyhihaCU8i1S9
-- `index.html` (styles and markup), `data.js` (example data), one file per tab or feature: `today.js` (the Today tab: overnight, what waits on Ben, what changed), `work.js` (the Work tab: order cards with their tracks), `agents.js` (the Agents tab: sessions working and idle), `apps.js` (the Apps tab and an app's page), `items.js` (an item's page and its track), `health.js` (reports Billboard couldn't read), `pushes.js` (the version-1 pushes), then `demo.js` and `shell.js` (tab bar, sheets, start-up).
+- `index.html` (styles and markup), `data.js` (example data), one file per tab or feature: `today.js` (the Today tab: overnight, what waits on Ben, what changed), `work.js` (the Work tab: order cards with their tracks), `agents.js` (the Agents tab: sessions working and idle), `apps.js` (the Apps tab and an app's page), `trends.js` (the Trends tab: what the Grafana dashboards hold), `items.js` (an item's page and its track), `health.js` (reports Billboard couldn't read), `pushes.js` (the version-1 pushes), then `demo.js` and `shell.js` (tab bar, sheets, start-up).
 - No side-by-side script yet.
