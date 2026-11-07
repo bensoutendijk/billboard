@@ -7,5 +7,6 @@ A view over Ben's work with Claude Code sessions on boris. README.md says where 
   - It has no chat: no sending answers or notes into sessions. Every item opens its session in the Claude app. Billboard writes only its own small state (dropped, done).
   - A session list is table stakes, not the point; Ben wants something beyond the Claude app's list.
   - Code, PRs and CI/CD live in GitHub (a deploy can run from Actions on a runner on boris). The data it joins (sessions, questions, PRs, deploys, incidents, cost) stays on boris, and the page is reachable only from Ben's tailnet. Not AWS.
+- The mock, once there is one, is laid out as the `mock` skill says from its first screen: `index.html`, `data.js`, a file per feature with its `LEDGER`, `demo.js`, `shell.js`. Publish only the files you change.
 - The old Kanban app (React, Express, MongoDB, deployed to boris over SSH) is at the tag `kanban-v1`. Don't bring it back.
 - CI's only PR check is the Gitleaks `secrets` job (`.github/workflows/secrets.yml`).
