@@ -9,7 +9,7 @@ import { execFile } from 'node:child_process';
 import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
-import { getSessions } from './sessions.mjs';
+import * as sessionsModule from './sessions.mjs';
 import { isSeen, lastLooked } from '../seen.mjs';
 
 const BUILD = ['Build', 'PR', 'Live', 'Checked'];
@@ -411,13 +411,22 @@ function sessionTitle(s, named) {
 async function build() {
   const now = Date.now();
   const repos = await listRepos();
-  const [repoData, merges, live, transcripts, named] = await Promise.all([
+  const [repoData, merges, live, transcripts, named, sfacts] = await Promise.all([
     Promise.all(repos.map((r) => readRepo(r, now).catch((err) => { console.error('items:', r.repo, err.message); return null; }))),
     mergedBy(),
     liveSessions(),
     readTranscripts(now),
-    getSessions().catch(() => [])
+    sessionsModule.getSessions().catch(() => []),
+    (sessionsModule.getSessionFacts ? sessionsModule.getSessionFacts() : Promise.resolve({})).catch(() => ({}))
   ]);
+  // The sessions module's own reading of merges (its `gh pr merge` calls) fills gaps in Prometheus's.
+  for (const f of Object.values(sfacts || {})) {
+    if (!f || !f.app || !Array.isArray(f.prsMerged)) continue;
+    for (const n of f.prsMerged) {
+      const k = `${OWNER}/${f.app}#${n}`;
+      if (!merges.has(k)) merges.set(k, [f.id]);
+    }
+  }
   const namedById = new Map((Array.isArray(named) ? named : []).map((s) => [s.id, s]));
 
   // The session behind each PR: the one that opened it, else the one that merged it.
