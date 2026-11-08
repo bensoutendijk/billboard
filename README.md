@@ -4,7 +4,9 @@ A view over Ben's work with Claude Code sessions on boris, for optimizing that w
 
 The design is the "Billboard Mocks" artifact (https://claude.ai/artifact/UbyQP4gmaWyhihaCU8i1S9).
 
-**Live on boris: http://boris.tail040b57.ts.net:4710** (tailnet only). Add it to the iPhone Home Screen from Safari's Share menu.
+**Runs on boris at http://boris.tail040b57.ts.net:4710** (tailnet only), once that port is let through: tailscaled on boris runs under
+Agent OS's connect guard, which passes only 22, 80, 443, 3000 and 6006 (agent-os ADR 0008), so the tailnet can't reach 4710 yet
+(`docs/DEPLOY.md`). Then add it to the iPhone Home Screen from Safari's Share menu.
 
 The app shell is built: the four tabs and every pushed page, ported from the mock, reading the mock's example data from the
 server's API. The sources in `server/sources/` don't read boris yet; each is replaced on its own (`server/CONTRACT.md`).

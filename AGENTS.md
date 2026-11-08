@@ -26,7 +26,7 @@ Ben's command centre for his work with Claude Code on boris: see everything, act
   - `deploy/billboard.service`: the systemd user unit. `docs/DEPLOY.md`: how it deploys and how the runner is registered.
 - Run it locally: `PORT=4799 node server/index.mjs` from your worktree (4710 is the live service), then open http://localhost:4799.
 - Check a change: run it and drive the tabs and pages it touches with Playwright at 390x844 (no console errors, `scrollWidth` stays 390). Playwright isn't installed in this repo; a throwaway script with `NODE_PATH=/home/ben/.npm/_npx/e41f203b7505f1fb/node_modules` finds a copy on boris. Don't commit the script.
-- Deploy: merging to master deploys. `.github/workflows/deploy.yml` runs on a self-hosted runner on boris, pulls `--ff-only` in the main checkout and restarts the unit. Live at http://boris.tail040b57.ts.net:4710 (tailnet only). Logs: `journalctl --user -u billboard`.
+- Deploy: merging to master deploys. `.github/workflows/deploy.yml` runs on a self-hosted runner on boris, pulls `--ff-only` in the main checkout and restarts the unit. Served at http://boris.tail040b57.ts.net:4710 (tailnet only), once Agent OS's tailnet connect guard lets 4710 through (`docs/DEPLOY.md`). Logs: `journalctl --user -u billboard`.
 - The old Kanban app (React, Express, MongoDB, deployed to boris over SSH) is at the tag `kanban-v1`. Don't bring it back.
 - CI's only PR check is the Gitleaks `secrets` job (`.github/workflows/secrets.yml`).
 
