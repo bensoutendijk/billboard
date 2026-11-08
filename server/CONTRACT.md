@@ -16,7 +16,7 @@ One module per data kind, so each can be replaced on its own. Each export is `as
 | Module | Exports | Feeds |
 |---|---|---|
 | `server/sources/items.mjs` | `getItems()`, `getTracks()`, `getNow()` | `/api/today-work` items, build, fromMock, now |
-| `server/sources/sessions.mjs` | `getSessions()`, `getThreads()` | `/api/today-work` sessions, threads |
+| `server/sources/sessions.mjs` | `getSessions()`, `getThreads()`, `getSessionFacts()` | `/api/today-work` sessions, threads; `getSessionFacts()` is for `items.mjs` to join on (below) |
 | `server/sources/projects.mjs` | `getApps()`, `getDays14()`, `getDayPrs()` | `/api/projects` |
 | `server/sources/agentos.mjs` | `getAos()`, `getPartInfo()`, `getVersions()` | `/api/agentos` |
 
@@ -77,16 +77,32 @@ What the Today and Work tabs, an item's page and a session's screen read.
 | `doing` | string | what it is doing or where it stopped, in words |
 | `mins` | number? | minutes running (working and job) |
 | `since` | string? | when its turn ended (other states) |
-| `cost` | number | dollars |
+| `cost` | number \| null | dollars; `null` when no cost is on record |
 | `helpers` | number? | subagents running |
 | `branch` | string? | |
 | `item` | string | the item it works on, or `''` |
-| `unseen` | boolean? | with `state: 'done'`: Ben hasn't opened it yet |
+| `unseen` | boolean? | with `state: 'done'`: Ben hasn't opened it yet (not known yet for real sessions, so left out) |
+| `url` | string \| null | the session in the Claude app (`https://claude.ai/code/session_…`), `null` when it has no app session |
+
+Where sessions come from (`server/sources/sessions.mjs`): `claude agents --json` and `~/.claude/sessions/<pid>.json` for
+live sessions, and the main-session transcripts in `~/.claude/projects/-home-ben-projects*/<sessionId>.jsonl` changed since
+2026-11-02 (read incrementally, refreshed every 10 s). A session's `app` is the `~/projects/<name>` under its cwd (for a
+session in `~/projects` itself, the project its commands touched most). `state`: `working` while its process is busy (`job`
+when the running command is `gh pr checks --watch`, `gh run watch`, `eas build` or `eas submit`); a live session whose turn
+ended on a numbered question or a "Needs Ben" section is `ben`; one with a PR still open on GitHub, a "What's left", or a
+branch with no PR is `paused`; the rest, and every ended session, `done`. `cost` comes from Prometheus
+(`claude_code_cost_usage_USD_total` by `session_id`), else the transcript's last cost record. Merged PRs come from the
+transcript's `gh pr merge` calls, the labels service's `agent_os_session_pr`, and `gh pr view` for PRs it opened.
+
+**SessionFacts** (`getSessionFacts()`, keyed by session id; not sent to the page): `{ id, app, cwd, live, status, startedAt,
+lastAt, turnEndedAt, toolCalls, prsOpened: {n, url, repo}[], prsMerged: number[], report: {works, left, needs} | null,
+question: {asked, parts: Part[]} | null, lastText }`. Times are epoch ms.
 
 **Message** (in `threads`, keyed by item id or session id; ids with no thread get one built in the browser):
 - `{ who: 'ben', at?: string, text: string, from?: string }`: Ben's message; `from` names where it was started (a mock row)
 - `{ who: 'agent', text: string }`: the agent's words
 - `{ who: 'tools', n: number, mins: number, live?: boolean }`: tool calls folded into one line
+- Real threads hold the latest 40 messages (plus Ben's opening message), each agent message cut at 1500 characters.
 - `{ who: 'report', works: string, left: string, needs: string }`: its report as a card
 
 ## GET /api/projects
