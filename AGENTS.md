@@ -1,7 +1,7 @@
 # Billboard
 Ben's command centre for his work with Claude Code on boris: see everything, act on any of it. README.md says where it stands.
 
-- The design comes from real apps first: "Billboard References" (https://claude.ai/artifact/UJ6HhRz2s9dstwM24ykd16) holds them, what to take and leave from each, and the draft spec. The mock below shows that spec's read-only version 1; it is being reworked for the calls below. Don't bring back the cleared first draft.
+- The design comes from real apps first: "Billboard References" (https://claude.ai/artifact/UJ6HhRz2s9dstwM24ykd16) holds them, what to take and leave from each, and the draft spec. The mock below has moved past that spec's read-only version 1 to the calls below; the spec will be rewritten from the mock. Don't bring back the cleared first draft.
 - Ben's calls so far (2026-11-07):
   - It covers boris sessions only, and nothing from before Agent OS lite (2026-11-02).
   - It acts, not just shows (reverses the earlier read-only, no-chat call): conversations start from what's on the board (answer a question, build it, fix it, new work on an app) and live in real Claude Code sessions on boris that also show in the Claude app. Billboard doesn't run its own chat system.
@@ -16,5 +16,5 @@ Ben's command centre for his work with Claude Code on boris: see everything, act
 
 ## Mock
 "Billboard Mocks": https://claude.ai/artifact/UbyQP4gmaWyhihaCU8i1S9
-- `index.html` (styles and markup), `data.js` (example data), one file per tab or feature: `today.js` (the Today tab: overnight, what waits on Ben, what changed), `work.js` (the Work tab: order cards with their tracks), `agents.js` (the Agents tab: sessions working and idle), `apps.js` (the Apps tab and an app's page), `trends.js` (the Trends tab: what the Grafana dashboards hold), `items.js` (an item's page and its track), `health.js` (reports Billboard couldn't read), `pushes.js` (the version-1 pushes), then `demo.js` and `shell.js` (tab bar, sheets, start-up).
+- `index.html` (styles and markup), `data.js` (example data), one file per tab or feature: `today.js` (the Today tab: overnight, what waits on Ben, answering on the cards), `work.js` (the Work tab: order cards with their tracks), `agents.js` (the Agents tab: sessions by what they need), `apps.js` (the Apps tab, an app's page, New work), `agentos.js` (the Agent OS tab: the control plane, its flow chart and parts), `trends.js` (the Trends sheet, opened from Agent OS), `session.js` (acting from the board and a session's screen), `items.js` (an item's page and its track), `health.js` (reports Billboard couldn't read), `pushes.js` (the pushes), then `demo.js` and `shell.js` (tab bar, sheets, start-up).
 - No side-by-side script yet.
