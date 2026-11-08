@@ -12,7 +12,7 @@
 var WORK_FILTER = 'all';
 function workHTML() {
   var order = { stuck: 0, agent: 1, job: 2, live: 3 };
-  var all = S.items.filter(function (i) { return i.who !== 'ben'; }).sort(function (a, b) { return order[a.who] - order[b.who]; });
+  var all = S.items.filter(function (i) { return i.who !== 'ben'; }).sort(function (a, b) { return (order[a.who] || 0) - (order[b.who] || 0); });
   var its = WORK_FILTER === 'all' ? all : all.filter(function (i) { return i.who === WORK_FILTER; });
   var f = [['all', 'All', all.length]].concat([['stuck', 'Stuck'], ['agent', 'Agent'], ['job', 'Jobs'], ['live', 'Live']].map(function (x) {
     return [x[0], x[1], all.filter(function (i) { return i.who === x[0]; }).length];

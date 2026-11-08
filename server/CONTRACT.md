@@ -124,3 +124,20 @@ repos of the PRs it merged; `lastLive` is the latest merge whose deploy run pass
 `loads` per week, oldest first.
 
 **Version**: `{ v, note, since, sessions: number, per: number, evals: number|null, pick: string, failed: string, changes: string[] }`
+
+## What the page does with it
+`web/data.js` loads the three routes on their own at start-up and again every 30 s (and when the page comes back into view),
+keeping the open page and its scroll. A route that fails keeps what it loaded before (the tab says so in a quiet line); one
+that never loaded reads as empty. The page tolerates missing optional fields and empty lists everywhere.
+
+Opening an item's page or a session's screen posts `POST /api/seen` with `{ "id": "<item or session id>" }`; until that
+route exists the page ignores the error and only forgets the item locally.
+
+Links out are real links: an item's `pr` and a day's PRs go to `github.com/bensoutendijk/<app>/pull/<n>`; a fact's link label
+`PR #<n>` goes to that PR, `Deploy run`, `EAS build`, `gitleaks` or `TestFlight` to the repo's Actions, and `<Name> Mocks` to the
+project's mock; other labels show as plain words. Optional fields a source may add, which the page reads when present:
+- `Session.url`: the session in the Claude app (otherwise the link opens `claude.ai/code`)
+- `Project.mock`: `{ name: 'Finances Mocks', url }` (otherwise the links open the artifacts gallery)
+- a fact's fourth element: its URL, overriding the label's
+- `rules[].history`, `skills[].history`: `[when, text][]`, newest first; `Aos.runs`: `{ [evalName]: [label, value][] }`;
+  a permission group's fourth element: its rules as strings. Without them the page says Billboard doesn't read that yet.

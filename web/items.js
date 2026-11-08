@@ -44,9 +44,9 @@ function questionBlock(q, isMenu) {
 
 function itemBody(id) {
   var i = findItem(id); if (!i) return '<p class="empty">Gone.</p>';
-  var why = i.who === 'ben' ? (i.question ? 'Waiting on your answer' + (i.sessionEnded ? '. Its session has ended.' : '.') : 'Only you can do this.') : i.reason;
+  var why = i.who === 'ben' ? (i.question ? 'Waiting on your answer' + (i.sessionEnded ? '. Its session has ended.' : '.') : 'Only you can do this.') : i.reason || '';
   var head = '<div class="sh-item" style="--app:' + appOf(i.app).color + '"><p class="rapp">' + appIcon(i.app) + esc(i.app) + '</p><h2>' + esc(i.title) + '</h2>' +
-    (i.pr ? '<button type="button" class="prlink" data-act="out" data-arg="PR #' + i.pr + '">PR #' + i.pr + ' ↗</button>' : '') +
+    (i.pr ? outLink(ghUrl(i.app, '/pull/' + i.pr), 'prlink', 'PR #' + i.pr + ' ↗') : '') +
     '<p class="sh-who">' + whoChip(i) + '<span>' + esc(why) + '</span></p></div>' + '<div class="trackcard">' + trackHTML(i, true) + '</div>';
   var ask = i.ask && i.who === 'ben' ? '<div class="askcard"><p>' + esc(i.ask.text) + '</p>' + (i.ask.liveAt ? '<p class="fine">Live since ' + esc(i.ask.liveAt) + '</p>' : '') + '</div>' : '';
   var q = i.question && i.who === 'ben' ? '<div class="qcard"><p class="qhead">Asked ' + esc(i.question.asked) + '</p>' + answerOpts(i, false) + '</div>' : '';
@@ -55,13 +55,15 @@ function itemBody(id) {
     (i.report.works ? '<dt>Works now</dt><dd>' + esc(i.report.works) + '</dd>' : '') +
     (i.report.left ? '<dt>What’s left</dt><dd>' + esc(i.report.left) + '</dd>' : '') +
     (i.report.needs ? '<dt>Needs you</dt><dd>' + esc(i.report.needs) + '</dd>' : '') + '</dl></div>' : '';
-  var facts = '<div class="block"><p class="bhead">What happened</p><ol class="facts">' + i.facts.map(function (f, k) {
-    return '<li class="' + (k === i.facts.length - 1 ? 'last' : '') + '"><span class="ft">' + esc(f[0]) + '</span><span class="fx">' + esc(f[1]) +
-      (f[2] ? ' <button type="button" class="flink" data-act="out" data-arg="' + esc(f[2]) + '">' + esc(f[2]) + '</button>' : '') + '</span></li>';
-  }).join('') + '</ol></div>';
+  // A fact's link is a label (contract); the PR, the run or the mock it names becomes a real link, anything else plain words.
+  var facts = '<div class="block"><p class="bhead">What happened</p>' + (i.facts.length ? '<ol class="facts">' + i.facts.map(function (f, k) {
+    var url = f[2] ? f[3] || factUrl(i.app, f[2]) : null;
+    return '<li class="' + (k === i.facts.length - 1 ? 'last' : '') + '"><span class="ft">' + esc(f[0] || '') + '</span><span class="fx">' + esc(f[1] || '') +
+      (f[2] ? ' ' + (url ? outLink(url, 'flink', esc(f[2])) : '<span class="fquiet">' + esc(f[2]) + '</span>') : '') + '</span></li>';
+  }).join('') + '</ol>' : '<p class="fine">Nothing recorded yet.</p>') + '</div>';
   var acts = '<div class="acts">';
   if (i.who === 'ben' && i.question) acts += '<button type="button" class="btn-primary" data-act="sendanswer" data-arg="' + i.id + '"' + (picksDone(i) ? '' : ' disabled') + '>Send</button><button type="button" class="btn-plain" data-act="session" data-arg="' + i.id + '">Reply in your words</button>';
-  else if (i.who === 'ben' && i.ask.kind === 'mock') acts += '<button type="button" class="btn-primary" data-act="buildit" data-arg="' + i.id + '">Build it</button><button type="button" class="btn-plain" data-act="out" data-arg="Finances Mocks">Open Finances Mocks</button>';
+  else if (i.who === 'ben' && i.ask.kind === 'mock') acts += '<button type="button" class="btn-primary" data-act="buildit" data-arg="' + i.id + '">Build it</button>' + outLink(mockOf(i.app).url, 'btn-plain', 'Open ' + esc(mockOf(i.app).name)) + '';
   else if (i.who === 'ben') acts += '<button type="button" class="btn-primary" data-act="clear" data-arg="' + i.id + '|' + (i.ask.kind === 'do' ? 'Done' : 'Works') + '">' + (i.ask.kind === 'do' ? 'Done' : 'It works') + '</button><button type="button" class="btn-plain" data-act="off" data-arg="' + i.id + '">Something’s off</button>';
   else if (i.who === 'stuck') acts += '<button type="button" class="btn-primary" data-act="fix" data-arg="' + i.id + '">Fix it</button>';
   acts += '</div>';
@@ -70,12 +72,15 @@ function itemBody(id) {
 function sessionOf(key) { return S.sessions.filter(function (s) { return s.id === key || (key && s.item === key); })[0]; }
 function sessionRow(i) {
   var s = sessionOf(i.id), on = s && (s.state === 'working' || s.state === 'job');
-  var meta = s ? (on ? [s.mins + ' min', '$' + s.cost.toFixed(2)].concat(s.helpers ? [plural(s.helpers, 'helper', 'helpers')] : [], s.branch ? [s.branch] : []) : ['Turn ended ' + s.since, '$' + s.cost.toFixed(2)]) : ['Ended'];
+  if (!s && !i.session) return '';
+  var meta = s ? (on ? (s.mins != null ? [s.mins + ' min'] : []).concat(['$' + s.cost.toFixed(2)], s.helpers ? [plural(s.helpers, 'helper', 'helpers')] : [], s.branch ? [s.branch] : [])
+    : [s.since ? 'Turn ended ' + s.since : 'Turn ended', '$' + s.cost.toFixed(2)]) : ['Ended'];
   return '<h2 class="sec">Session</h2><ul class="list"><li><button type="button" class="row noicon" data-act="session" data-arg="' + i.id + '"><span class="rbody">' +
     '<span class="rtitle">' + (on ? '<span class="pulse live" aria-hidden="true"></span>' : '') + esc(s ? s.title : i.session) + '</span>' +
     (s ? '<span class="rline">' + esc(s.doing) + '</span>' : '') + '<span class="rquiet">' + meta.map(esc).join(' · ') + '</span></span>' + CHEV + '</button></li></ul>';
 }
 function itemSheet(id) {
   var i = findItem(id); if (i) i.unseen = false;
+  markSeen(id);
   openSheet(itemBody(id), i ? i.title : 'Item', 'item-' + id); stack[stack.length - 1].redo = function () { return itemBody(id); };
 }
