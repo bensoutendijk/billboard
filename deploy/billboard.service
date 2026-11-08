@@ -1,0 +1,14 @@
+[Unit]
+Description=Billboard: Ben's command centre over his Claude Code work on boris (port 4710, tailnet only)
+After=network-online.target
+
+[Service]
+WorkingDirectory=/home/ben/projects/billboard
+Environment=PATH=/home/ben/.local/bin:/home/ben/.local/share/agent-os/node-bin:/usr/local/bin:/usr/bin:/bin
+Environment=PORT=4710
+ExecStart=/home/ben/.local/share/agent-os/node-bin/node server/index.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

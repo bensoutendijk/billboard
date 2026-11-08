@@ -2,7 +2,12 @@
 
 A view over Ben's work with Claude Code sessions on boris, for optimizing that workflow.
 
-Nothing is designed or built yet. The design starts by going over real designs from real apps, then moves to the "Billboard Mocks" artifact (https://claude.ai/artifact/UbyQP4gmaWyhihaCU8i1S9).
+The design is the "Billboard Mocks" artifact (https://claude.ai/artifact/UbyQP4gmaWyhihaCU8i1S9).
+
+**Live on boris: http://boris.tail040b57.ts.net:4710** (tailnet only). Add it to the iPhone Home Screen from Safari's Share menu.
+
+The app shell is built: the four tabs and every pushed page, ported from the mock, reading the mock's example data from the
+server's API. The sources in `server/sources/` don't read boris yet; each is replaced on its own (`server/CONTRACT.md`).
 
 ## Notification requirements (draft, from Flighty's alerts)
 1. Warn early, from upstream signals: a failing deploy, red CI or a stuck session before Ben would notice it himself.

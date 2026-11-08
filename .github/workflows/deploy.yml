@@ -1,0 +1,41 @@
+name: Deploy
+
+# On every push to master, a self-hosted runner on boris brings the main checkout up to date and restarts
+# the billboard user unit. docs/DEPLOY.md says how the runner is registered. Fix forward: no gates, no rollback.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    env:
+      XDG_RUNTIME_DIR: /run/user/1000
+      DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/1000/bus
+    steps:
+      - name: Pull the main checkout
+        run: git -C /home/ben/projects/billboard pull --ff-only
+      - name: Restart the service
+        run: |
+          set -euo pipefail
+          systemctl --user link /home/ben/projects/billboard/deploy/billboard.service 2>/dev/null || true
+          systemctl --user daemon-reload
+          systemctl --user enable billboard.service
+          systemctl --user restart billboard.service
+      - name: Check it answers
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            curl --fail --silent http://localhost:4710/api/health && exit 0
+            sleep 1
+          done
+          systemctl --user status billboard.service --no-pager || true
+          exit 1

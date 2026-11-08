@@ -18,6 +18,15 @@ Ben's command centre for his work with Claude Code on boris: see everything, act
   - Memories show exactly as Claude Code keeps them: one folder per project, its MEMORY.md in order, each memory typed and linked by name. No moving or converting memories for now.
   - Nothing made up in the mock: every entity must exist on boris, or the build is on the hook for it. Example numbers are fine.
 - The mock, once there is one, is laid out as the `mock` skill says from its first screen: `index.html`, `data.js`, a file per feature with its `LEDGER`, `demo.js`, `shell.js`. Publish only the files you change.
+- Stack: a Node 24 HTTP server (ESM, standard library only, no dependencies, no build step, no framework) that serves the page and a JSON API; the page is plain scripts ported from the mock. No tests (Agent OS rules).
+- Layout:
+  - `server/index.mjs`: the server, port 4710 on all interfaces; routes under `/api/`. `server/CONTRACT.md` documents every route and object shape; keep it current.
+  - `server/sources/`: one module per data kind (`items.mjs`, `sessions.mjs`, `projects.mjs`, `agentos.mjs`), each async; they return `server/fixtures.mjs` (the mock's `data.js`, verbatim) until they read boris.
+  - `web/`: the page. `index.html` (the mock's styles and markup), `data.js` (loads the API into the globals the mock's `data.js` declared), the feature files as in the mock, and `shell.js` (the mock's, without the Demo panel). `demo.js` and `pushes.js` aren't ported.
+  - `deploy/billboard.service`: the systemd user unit. `docs/DEPLOY.md`: how it deploys and how the runner is registered.
+- Run it locally: `PORT=4799 node server/index.mjs` from your worktree (4710 is the live service), then open http://localhost:4799.
+- Check a change: run it and drive the tabs and pages it touches with Playwright at 390x844 (no console errors, `scrollWidth` stays 390). Playwright isn't installed in this repo; a throwaway script with `NODE_PATH=/home/ben/.npm/_npx/e41f203b7505f1fb/node_modules` finds a copy on boris. Don't commit the script.
+- Deploy: merging to master deploys. `.github/workflows/deploy.yml` runs on a self-hosted runner on boris, pulls `--ff-only` in the main checkout and restarts the unit. Live at http://boris.tail040b57.ts.net:4710 (tailnet only). Logs: `journalctl --user -u billboard`.
 - The old Kanban app (React, Express, MongoDB, deployed to boris over SSH) is at the tag `kanban-v1`. Don't bring it back.
 - CI's only PR check is the Gitleaks `secrets` job (`.github/workflows/secrets.yml`).
 
