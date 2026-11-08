@@ -7,11 +7,57 @@ var CHEV = '<svg class="chev" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 
 var BACK = '<svg class="bchev" viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function $(id) { return document.getElementById(id); }
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-function appOf(key) { return APPS.filter(function (x) { return x.key === key; })[0] || { key: key, name: key, color: '#8e8e93' }; }
+function appOf(key) {
+  return APPS.filter(function (x) { return x.key === key; })[0] ||
+    { key: key, name: key || '?', color: '#8e8e93', lastLive: '', designed: null, week: 0, merges: [0, 0, 0, 0, 0, 0, 0], m14: DAYS14.map(function () { return 0; }), c14: DAYS14.map(function () { return 0; }) };
+}
 function appIcon(key) { var a = appOf(key); return '<span class="aicon" style="background:' + a.color + '" aria-hidden="true">' + esc(a.name.charAt(0).toUpperCase()) + '</span>'; }
 function clone(x) { return JSON.parse(JSON.stringify(x)); }
 
-function start() { S = { items: clone(ITEMS), sessions: clone(SESSIONS), draft: {} }; }
+// The board's working copy, rebuilt from the globals on every load. Drafts, picks and what Ben opened carry over.
+// Real data can have states the mock's example data never had, so each item and session is made safe to render here.
+var WHOS = ['ben', 'agent', 'job', 'live', 'stuck'], STATES = ['working', 'job', 'ben', 'paused', 'done'];
+function normItem(i) {
+  if (WHOS.indexOf(i.who) < 0) i.who = 'agent';
+  if (!Array.isArray(i.steps) || !i.steps.length) i.steps = BUILD;
+  i.step = Math.max(0, Math.min(i.steps.length - 1, +i.step || 0));
+  if (!Array.isArray(i.facts)) i.facts = [];
+  i.title = i.title || 'Untitled'; i.session = i.session || '';
+  if (i.who === 'job' && !i.job) i.job = 'Job';
+  if (i.question && !(i.question.parts && i.question.parts.length)) i.question = null;
+  if (i.question) i.question.parts.forEach(function (p) { p.opts = p.opts || []; p.q = p.q || ''; });
+  if (i.menu && i.menu.parts) i.menu.parts.forEach(function (p) { p.opts = p.opts || []; });
+  if (i.who === 'ben' && !i.question && !i.ask) i.ask = { kind: 'do', text: i.reason || 'Only you can do this.', liveAt: '' };
+  if (i.ask) { if (['try', 'do', 'mock'].indexOf(i.ask.kind) < 0) i.ask.kind = 'do'; i.ask.text = i.ask.text || 'Only you can do this.'; i.ask.liveAt = i.ask.liveAt || ''; }
+  if (i.menu && !(i.menu.parts && i.menu.parts.length)) i.menu = null;
+  if (i.report && !i.report.works && !i.report.left && !i.report.needs) i.report = null;
+  if (i.who === 'stuck' && !i.short) i.short = i.reason || 'Stuck';
+  if (SEEN[i.id]) i.unseen = false;
+  return i;
+}
+function normSession(s) {
+  if (STATES.indexOf(s.state) < 0) s.state = 'paused';
+  s.cost = s.cost == null || isNaN(s.cost) ? null : +s.cost; s.doing = s.doing || ''; s.title = s.title || 'Untitled session'; s.item = s.item || '';
+  if (SEEN[s.id]) s.unseen = false;
+  return s;
+}
+function start() {
+  S = { items: clone(ITEMS).map(normItem), sessions: clone(SESSIONS).map(normSession), draft: S ? S.draft : {} };
+}
+
+// Links out are real links: GitHub for PRs and runs, the Claude app for a session, the mock artifact for designs.
+var GH = 'https://github.com/bensoutendijk/';
+function ghUrl(app, path) { return GH + encodeURIComponent(app) + (path || ''); }
+function mockOf(app) { var m = appOf(app).mock; return m && m.url ? m : { name: 'the mock', url: 'https://claude.ai/code/artifacts' }; }
+function outLink(href, cls, html) { return '<a class="' + cls + '" href="' + esc(href) + '" target="_blank" rel="noopener">' + html + '</a>'; }
+function factUrl(app, label) {
+  var m = /^PR #(\d+)/.exec(label);
+  if (m) return ghUrl(app, '/pull/' + m[1]);
+  if (/deploy run|eas build|gitleaks|testflight/i.test(label)) return ghUrl(app, '/actions');
+  if (/ Mocks$/.test(label)) return mockOf(app).url;
+  return null;
+}
+function notWired() { toast('Not wired up yet'); }
 
 var TABS = [['today', 'Today'], ['work', 'Work'], ['projects', 'Projects'], ['agentos', 'Agent OS']];
 var ICONS = {
@@ -28,9 +74,10 @@ function tabbarHTML() {
       '<span class="ticon">' + ICONS[t[0]] + (t[0] === 'today' && w ? '<span class="badge">' + w + '</span>' : '') + '</span><span>' + t[1] + '</span></button>';
   }).join('');
 }
+var FEEDS = { today: ['today-work'], work: ['today-work'], projects: ['projects'], agentos: ['agentos'] };
 function render() {
   var oc = $('cards'), sl = oc ? oc.scrollLeft : 0;
-  $('main').innerHTML = TAB === 'today' ? todayHTML() : TAB === 'work' ? workHTML() : TAB === 'projects' ? projectsHTML() : agentosHTML();
+  $('main').innerHTML = staleLine(FEEDS[TAB]) + (TAB === 'today' ? todayHTML() : TAB === 'work' ? workHTML() : TAB === 'projects' ? projectsHTML() : agentosHTML());
   $('tabbar').innerHTML = tabbarHTML();
   if (TAB === 'today') { wireCards(); if ($('cards')) $('cards').scrollLeft = sl; }
 }
@@ -148,28 +195,28 @@ function toast(msg, undo) {
 }
 
 var ACT = {
-  tab: function (t) { if (t === TAB) popToRoot(); else switchTab(t); },
+  tab: function (t) { if (!BOOTED) return; if (t === TAB) popToRoot(); else switchTab(t); },
   back: function () { popPage(); },
   item: function (id) { itemSheet(id); },
   waiting: function () { listSheet(); },
   project: function (key) { projectPage(key); },
   appday: function (arg) { appDay(arg); },
   pick: function (a) { pickOpt(a); },
-  sendanswer: function (id) { sendAnswer(id); },
+  sendanswer: function () { notWired(); },
   session: function (k) { openSession(k); },
-  reply: function (k) { reply(k); },
-  buildit: function (id) { buildIt(id); },
+  reply: function () { notWired(); },
+  buildit: function () { notWired(); },
   off: function (id) { somethingOff(id); },
   fix: function (id) { briefSheet('fix', id); },
   newwork: function (k) { briefSheet('new', k); },
-  startwork: function (a) { startWork(a); },
-  archive: function (id) { archive(id); },
+  startwork: function () { notWired(); },
+  archive: function () { notWired(); },
   aos: function (a) { aosOpen(a); },
   aosbrief: function (a) { aosBrief(a); },
-  aosstart: function (a) { aosStart(a); },
+  aosstart: function () { notWired(); },
   wfilter: function (f) { WORK_FILTER = f; render(); },
-  out: function (to) { toast('Opens ' + to + (to === 'the session' ? ' in the Claude app' : '')); },
-  clear: function (arg) { var p = arg.split('|'); clearAsk(p[0], p[1]); }
+  clear: function () { notWired(); },
+  nowired: function () { notWired(); }
 };
 document.addEventListener('click', function (e) {
   var el = e.target.closest('[data-act]');
@@ -178,10 +225,34 @@ document.addEventListener('click', function (e) {
 document.addEventListener('input', function (e) { if (e.target.id && e.target.id.indexOf('reply-') === 0) S.draft[e.target.id.slice(6)] = e.target.value; });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && stack.length) popPage(); });
 
-loadBoard().then(function () {
-  start();
+// Start-up, then a fresh board every 30 s (and when the page comes back into view), keeping the open page and its scroll.
+var BOOTED = false, LOADING = false;
+function refreshAll() {
+  var y = window.scrollY, act = document.activeElement, ps = layers();
+  stack.forEach(function (e, k) {
+    var el = ps[k]; if (!e.redo || !el) return;
+    if (act && el.contains(act) && /^(TEXTAREA|INPUT)$/.test(act.tagName)) return;  // never under Ben's typing
+    var top = el.scrollTop; e.html = e.redo(); el.querySelector('.pg-body').innerHTML = e.html; el.scrollTop = top;
+  });
+  Object.keys(STACKS).forEach(function (t) { if (t !== TAB) STACKS[t].forEach(function (e) { if (e.redo) e.html = e.redo(); }); });
   render();
-  restoreRoute();
-}, function (err) {
-  $('main').innerHTML = '<p class="empty">Billboard couldn’t load. ' + esc(err.message) + '</p>';
-});
+  if (!stack.length) window.scrollTo(0, y);
+}
+function load() {
+  if (LOADING || drag) return;
+  LOADING = true;
+  loadBoard().then(function () {
+    LOADING = false; start();
+    if (BOOTED) return refreshAll();
+    BOOTED = true; render(); restoreRoute();
+  }, function (err) {
+    LOADING = false;
+    if (!BOOTED) $('main').innerHTML = '<p class="empty">' + esc(err.message) + ' Trying again.</p>';
+  });
+}
+start();
+$('main').innerHTML = '<p class="empty">Loading…</p>';
+$('tabbar').innerHTML = tabbarHTML();
+load();
+setInterval(function () { if (!document.hidden) load(); }, 30000);
+document.addEventListener('visibilitychange', function () { if (!document.hidden && BOOTED) load(); });

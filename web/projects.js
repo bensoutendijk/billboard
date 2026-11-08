@@ -39,6 +39,7 @@ function strip(a) {
 
 function projectsHTML() {
   var rows = APPS.map(function (a) { return { a: a, w: appWorst(a.key) }; }).sort(function (x, y) { return RANK[x.w.rank] - RANK[y.w.rank]; });
+  if (!rows.length) return LOADED.projects ? '<p class="empty">No projects in ~/projects.</p>' : '';
   return '<div class="grid">' + rows.map(function (r) {
     var n = openCount(r.a.key);
     return '<button type="button" class="acard' + (r.w.rank === 'none' ? ' quiet' : '') + '" data-act="project" data-arg="' + r.a.key + '" style="--app:' + r.a.color + '">' +
@@ -67,8 +68,8 @@ function appDetail(key) {
   var its = S.items.filter(function (i) { return i.app === key; });
   var prs = DAY_PRS[key + ':' + sel];
   var dayLine = '<div class="bday"><p class="bdhead"><b>' + DAYS14[sel] + '</b> · ' + plural(a.m14[sel], 'merge', 'merges') + ' · $' + a.c14[sel] + '</p>' +
-    (a.m14[sel] ? (prs ? '<ol class="bprs">' + prs.map(function (p) { return '<li><button type="button" class="flink" data-act="out" data-arg="PR #' + p[0] + '">#' + p[0] + '</button> ' + esc(p[1]) + '</li>'; }).join('') + '</ol>'
-      : '<p class="fine">The PRs that day would list here.</p>') : '') + '</div>';
+    (a.m14[sel] ? (prs ? '<ol class="bprs">' + prs.map(function (p) { return '<li>' + outLink(ghUrl(key, '/pull/' + p[0]), 'flink', '#' + p[0]) + ' ' + esc(p[1]) + '</li>'; }).join('') + '</ol>'
+      : '<p class="fine">Billboard couldn’t list that day’s PRs.</p>') : '') + '</div>';
   return '<div class="sh-app">' + appIcon(key) + '<div><h2>' + esc(a.name) + '</h2><p class="aworst ' + w.cls + '">' + esc(w.text) + '</p></div></div>' +
     '<button type="button" class="btn-primary" data-act="newwork" data-arg="' + key + '">New work in ' + esc(a.name) + '</button>' +
     '<div class="chartcard" style="--app:' + a.color + '">' +
@@ -77,8 +78,8 @@ function appDetail(key) {
     '<p class="ctitle">Merges per day</p>' + bars(a.m14, 'tall', key, sel, function (v) { return String(v); }, 7) +
     '<p class="ctitle">Cost per day</p>' + bars(a.c14, 'short', key, sel, function (v) { return '$' + v; }, 7) + dayAxis() +
     '<p class="legend"><span class="lg cur"></span>This week<span class="lg prev"></span>Last week</p>' + dayLine + '</div>' +
-    '<dl class="report"><dt>Last live</dt><dd>' + esc(a.lastLive) + '</dd>' +
-    '<dt>Designed</dt><dd>' + (a.designed == null ? '<button type="button" class="flink" data-act="out" data-arg="the mock">In the mock</button>' : a.designed ? '<button type="button" class="flink" data-act="out" data-arg="the mock">' + a.designed + ' rows not built yet</button>' : 'Nothing waiting in the mock') + '</dd></dl>' +
+    '<dl class="report"><dt>Last live</dt><dd>' + esc(a.lastLive || 'Nothing live yet') + '</dd>' +
+    '<dt>Designed</dt><dd>' + (a.designed == null ? outLink(mockOf(key).url, 'flink', 'In ' + esc(mockOf(key).name)) : a.designed ? outLink(mockOf(key).url, 'flink', a.designed + ' rows not built yet') : 'Nothing waiting in the mock') + '</dd></dl>' +
     (its.length ? '<div class="ocards">' + its.map(orderCard).join('') + '</div>' : '<p class="empty">Nothing open.</p>');
 }
 function projectPage(key) { openSheet(appDetail(key), appOf(key).name, 'project-' + key); stack[stack.length - 1].redo = function () { return appDetail(key); }; }

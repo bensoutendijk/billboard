@@ -6,7 +6,7 @@ Port 4710 (`PORT` overrides), bound to all interfaces; the tailnet is the only w
 Every route is `GET` except `POST /api/seen`, and answers `application/json` and `cache-control: no-cache`. An unknown `/api/` path answers 404
 `{ "error": "No such route" }`, another method 405, and a source that throws 500 `{ "error": "<message>" }`.
 
-The front end (`web/data.js`) fetches the three board routes once at start-up and puts each field into the global the
+The front end (`web/data.js`) fetches the three board routes at start-up and every 30 s (below) and puts each field into the global the
 mock's `data.js` declared (named in brackets below), so the feature files read exactly what the mock read. The shape
 reference is the mock "Billboard Mocks" (`data.js`); `server/fixtures.mjs` holds its data verbatim.
 
@@ -179,3 +179,19 @@ of the rules' eval runs while that version was in force; `pick` is `'—'` (no s
 
 `server/sources/agentos.mjs` builds all of this in the background (about 2 seconds) and refreshes it every 5 minutes; a request gets the
 last build. `AGENT_OS_DIR`, `CLAUDE_DIR` and `PROMETHEUS_URL` override where it reads.
+
+## What the page does with it
+`web/data.js` loads the three routes on their own at start-up and again every 30 s (and when the page comes back into view),
+keeping the open page and its scroll. A route that fails keeps what it loaded before (the tab says so in a quiet line); one
+that never loaded reads as empty. The page tolerates missing optional fields and empty lists everywhere.
+
+Opening an item's page or a session's screen posts `POST /api/seen` with `{ "id": "<item or session id>" }` (best effort) and
+forgets it locally at once, so it leaves Done even before the next load.
+
+Links out are real links: an item's `pr` and a day's PRs go to `github.com/bensoutendijk/<app>/pull/<n>`; a fact's link label
+`PR #<n>` goes to that PR, `Deploy run`, `EAS build`, `gitleaks` or `TestFlight` to the repo's Actions, and `<Name> Mocks` to the
+project's mock; other labels show as plain words. Optional fields a source may add, which the page reads when present:
+- `Session.url` (above): Open in the Claude app shows only when it is set
+- `Project.mock`: `{ name: 'Finances Mocks', url }` (otherwise the links open the artifacts gallery)
+- a fact's fourth element: its URL, overriding the label's
+- `rules[].history`, `skills[].history`: `[when, text][]`, newest first; History is left out without them.

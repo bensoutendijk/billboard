@@ -25,13 +25,13 @@ function waitCard(i) {
       '<div class="wacts"><button type="button" class="btn-primary sm" data-act="sendanswer" data-arg="' + i.id + '"' + (picksDone(i) ? '' : ' disabled') + '>Send</button>' +
       '<button type="button" class="btn-link" data-act="session" data-arg="' + i.id + '">Reply</button></div>';
   } else {
-    var main = i.ask.kind === 'mock' ? '<button type="button" class="btn-primary sm" data-act="buildit" data-arg="' + i.id + '">Build it</button><button type="button" class="btn-link" data-act="out" data-arg="Finances Mocks">Open the mock</button>'
+    var main = i.ask.kind === 'mock' ? '<button type="button" class="btn-primary sm" data-act="buildit" data-arg="' + i.id + '">Build it</button>' + outLink(mockOf(i.app).url, 'btn-link', 'Open the mock')
       : '<button type="button" class="btn-primary sm" data-act="clear" data-arg="' + i.id + '|' + (i.ask.kind === 'do' ? 'Done' : 'Works') + '">' + (i.ask.kind === 'do' ? 'Done' : 'It works') + '</button><button type="button" class="btn-link" data-act="off" data-arg="' + i.id + '">Something’s off</button>';
     body = '<p class="wkind">' + ({ try: 'Try it', do: 'For you to do', mock: 'In the mock' })[i.ask.kind] + '</p>' +
       '<p class="wq">' + esc(i.ask.text) + '</p><p class="wtitle">' + esc(i.title) + '</p><div class="wacts">' + main + '</div>';
   }
   return '<div class="wcard" style="--app:' + a.color + '">' +
-    '<button type="button" class="wband" data-act="item" data-arg="' + i.id + '"><span class="wapp">' + appIcon(i.app) + esc(i.app) + '</span><span class="wage">' + esc(i.question ? 'asked ' + i.question.asked : i.ask.liveAt ? 'live ' + i.ask.liveAt : 'in the mock') + ' ›</span></button>' +
+    '<button type="button" class="wband" data-act="item" data-arg="' + i.id + '"><span class="wapp">' + appIcon(i.app) + esc(i.app) + '</span><span class="wage">' + esc(i.question ? 'asked ' + i.question.asked : i.ask.liveAt ? 'live ' + i.ask.liveAt : i.ask.kind === 'mock' ? 'in the mock' : 'for you') + ' ›</span></button>' +
     '<div class="wbody">' + body + '</div></div>';
 }
 
@@ -45,10 +45,10 @@ function cardsHTML() {
 // Done: finished work Ben hasn't opened yet. Opening it marks it seen.
 function unseenDone() {
   var its = S.items.filter(function (i) { return i.who === 'live' && i.unseen; }).map(function (i) {
-    return { act: 'item', arg: i.id, app: i.app, title: i.title, line: i.report ? i.report.works : i.reason, when: i.reason || '' };
+    return { act: 'item', arg: i.id, app: i.app, title: i.title, line: (i.report && i.report.works) || i.reason || '', when: i.reason || '' };
   });
   var ss = S.sessions.filter(function (s) { return s.state === 'done' && s.unseen && !s.item; }).map(function (s) {
-    return { act: 'session', arg: s.id, app: s.app, title: s.title, line: s.doing, when: 'Ended ' + s.since };
+    return { act: 'session', arg: s.id, app: s.app, title: s.title, line: s.doing, when: s.since ? 'Ended ' + s.since : 'Ended' };
   });
   return its.concat(ss);
 }
@@ -80,15 +80,6 @@ function waitingPage() {
     (q.length || a.length ? '' : '<p class="empty">Nothing waits on you.</p>');
 }
 function listSheet() { openSheet(waitingPage(), 'Waiting on you', 'waiting'); stack[stack.length - 1].redo = waitingPage; }
-
-// Works / Done / Build it on an ask (from the item page).
-function clearAsk(id, label) {
-  var i = findItem(id), was = { who: i.who, step: i.step, reason: i.reason };
-  if (i.ask.kind === 'mock') { toast('Opens the session so you can say build it'); return; }
-  i.who = 'live'; i.reason = 'You marked it ' + label.toLowerCase() + '.'; i.step = 3; i.checked = true;
-  refresh();
-  toast(label === 'Works' ? 'Marked as working' : 'Marked done', function () { i.who = was.who; i.step = was.step; i.reason = was.reason; i.checked = false; refresh(); });
-}
 
 function wireCards() {
   var c = $('cards'); if (!c) return;
