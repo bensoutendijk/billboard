@@ -110,14 +110,32 @@ What the Today and Work tabs, an item's page and a session's screen read.
 }
 ```
 **Aos**:
-- `version`: string, the current rules version (`'2026-11-07 8f32cec'`)
-- `rules`: `{ id, name, step, text, evals: string[] }[]`; `evals` are eval names
-- `evals`: `{ [evalName]: [withTheRules: number, without: number] }` percent scores
-- `skills`: `{ id, step, kb: number, runs: number, text, evals: string[], personal?: true }[]`
-- `permissions`: `{ allow: number, deny: number, groups: [name, count, sample][], denied: [rule, meaning][], blocked: [when, appKey, what, why][] }`
-- `memories`: `[project, slug, title, type: 'feedback'|'project'|'reference'|'user', line, links: string[]][]` in each project's MEMORY.md order; `links` are slugs, a missing one is shown as missing
+- `version`: string, the current rules version: the latest commit touching `lite/AGENTS.md`, `'<date> <short sha>'` (`'2026-11-07 544b891'`)
+- `rules`: `{ id, name, step, text, evals: string[], history: [when, what][] }[]`: one per bullet or paragraph of `lite/AGENTS.md`, in order;
+  `name` is its first words, `id` a slug of the name, `step` is `''` (no source), `evals` are eval names, `history` the commits that changed it, newest first
+- `evals`: `{ [evalName]: [withTheRules: number|null, without: number|null] }` percent scores: the latest run of each `lite/evals/*` case in
+  `evals/history.jsonl` (the rules' own runs); `without` is that run's baseline, else the latest baseline the case has; `null` for none
+- `evalInfo`: `{ [evalName]: { runs, costUsd, judgeModel, date, baselineDate: string|null } | null }`: that latest run
+- `skills`: `{ id, step, kb: number, runs: number, text, evals: string[], history: [when, what][], personal?: true }[]`: every `SKILL.md` under
+  `lite/skills/` and `boris/skills/` (`personal`); `text` is its description, `runs` its loads in the last 4 weeks, `step` is `''`
+- `permissions`: `{ allow: number, deny: number, groups: [name, count, sample][], lists: { [groupName]: string[] }, denied: [rule, meaning][], blocked: [when, appKey, what, why][] }`:
+  from `~/.claude/settings.json`; `lists` holds each group's full rules; `blocked` is the tool calls permissions denied in the last 7 days' transcripts, newest first
+- `memories`: `[project, slug, title, type: 'feedback'|'project'|'reference'|'user', line, links: string[]][]` in each project's MEMORY.md order; `title` and
+  `line` are the MEMORY.md entry, `type` and `links` (`[[name]]`) come from the memory's file; a missing link is shown as missing
+
+How a case's rules and skills are found: the case's own `rules:`/`skills:` lists in `case.yaml` if it has them; otherwise a skill whose name is
+a word of the case's name or tags, and the rules whose text uses the case's words most.
 
 **PartInfo**: `{ loads: number[4], used: [when, appKey, what, outcome][], loaded: [label, value][], contents: string[] }`;
-`loads` per week, oldest first.
+`loads` per week, oldest first (the last 7 days last), from Prometheus's `agent_os_session_skill_runs` placed by each session's last event
+(the transcripts' Skill calls if Prometheus is down); `used` the sessions that loaded it, newest first (title from the transcript; outcome
+from the PRs it merged); `loaded` its cost a session from Claude Code's `skill_name` cost label and its sessions' failed tool calls;
+`contents` the SKILL.md's H2 headings.
 
-**Version**: `{ v, note, since, sessions: number, per: number, evals: number|null, pick: string, failed: string, changes: string[] }`
+**Version**: `{ v, note, since, sessions: number, per: number|null, evals: number|null, pick: string, failed: string, changes: string[] }`:
+one per commit touching `lite/AGENTS.md`, newest first. `sessions`, `per` (average cost a session) and `failed` come from Prometheus by the
+labels service's `agent_os_version` (a skill or CLAUDE.md commit counts toward the rules version it ran under); `evals` is the average score
+of the rules' eval runs while that version was in force; `pick` is `'—'` (no source yet); `changes` the commits under `lite/` in that version.
+
+`server/sources/agentos.mjs` builds all of this in the background (about 2 seconds) and refreshes it every 5 minutes; a request gets the
+last build. `AGENT_OS_DIR`, `CLAUDE_DIR` and `PROMETHEUS_URL` override where it reads.

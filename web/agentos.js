@@ -20,15 +20,16 @@
 function rule(id) { return AOS.rules.filter(function (r) { return r.id === id; })[0]; }
 function skill(id) { return AOS.skills.filter(function (s) { return s.id === id; })[0]; }
 function memory(slug) { return AOS.memories.filter(function (m) { return m[1] === slug; })[0]; }
-function evalAvg(which) { var v = Object.keys(AOS.evals).map(function (k) { return AOS.evals[k][which]; }); return Math.round(v.reduce(function (a, b) { return a + b; }, 0) / v.length); }
+function evalAvg(which) { var v = Object.keys(AOS.evals).map(function (k) { return AOS.evals[k][which]; }).filter(function (x) { return x != null; }); return v.length ? Math.round(v.reduce(function (a, b) { return a + b; }, 0) / v.length) : '—'; }
+function evalCost(names) { var c = names.reduce(function (t, k) { var i = (AOS.evalInfo || {})[k]; return t + (i && i.costUsd || 0); }, 0); return c ? 'about $' + (c < 10 ? c.toFixed(2) : Math.round(c)) : ''; }
 function go(arg, inner, cls) { return '<button type="button" class="row' + (cls ? ' ' + cls : '') + '" data-act="aos" data-arg="' + arg + '">' + inner + CHEV + '</button>'; }
 function tile(cls, glyph) { return '<span class="aicon ' + cls + '" aria-hidden="true">' + glyph + '</span>'; }
 function sec(t) { return '<h2 class="sec">' + esc(t) + '</h2>'; }
 function kv(rows) { return '<ul class="list kv">' + rows.map(function (r) { return '<li><div class="row static"><span class="kk">' + esc(r[0]) + '</span><span class="kvv">' + esc(r[1]) + '</span></div></li>'; }).join('') + '</ul>'; }
 function evBars(name) {
   var e = AOS.evals[name];
-  return '<div class="evrow"><span class="evname">' + esc(name) + '</span><span class="evnums">' + e[0] + '% <span class="muted">· ' + e[1] + '% without</span></span>' +
-    '<span class="evbar"><i style="width:' + e[0] + '%"></i></span><span class="evbar wo"><i style="width:' + e[1] + '%"></i></span></div>';
+  return '<div class="evrow"><span class="evname">' + esc(name) + '</span><span class="evnums">' + (e[0] == null ? 'not run' : e[0] + '%') + ' <span class="muted">· ' + (e[1] == null ? 'no run without' : e[1] + '% without') + '</span></span>' +
+    '<span class="evbar"><i style="width:' + (e[0] || 0) + '%"></i></span><span class="evbar wo"><i style="width:' + (e[1] || 0) + '%"></i></span></div>';
 }
 function head(kind, title, cls, glyph) { return '<div class="sh-item"><p class="rapp">' + tile(cls + ' sm', glyph) + esc(kind) + '</p><h2>' + esc(title) + '</h2></div>'; }
 function agentAction(arg, label) { return '<div class="acts"><button type="button" class="btn-primary" data-act="aosbrief" data-arg="' + arg + '">' + esc(label || 'Change with an agent') + '</button></div>'; }
@@ -37,7 +38,7 @@ var TYPES = { feedback: 'Feedback', project: 'Project', reference: 'Reference', 
 
 // The tab.
 function agentosHTML() {
-  var worse = Object.keys(AOS.evals).filter(function (k) { return AOS.evals[k][0] < AOS.evals[k][1]; }).length;
+  var worse = Object.keys(AOS.evals).filter(function (k) { var e = AOS.evals[k]; return e[0] != null && e[1] != null && e[0] < e[1]; }).length;
   var missing = AOS.rules.filter(function (r) { return !r.evals.length; }).length;
   var projects = AOS.memories.map(function (m) { return m[0]; }).filter(function (p, k, a) { return a.indexOf(p) === k; }).length;
   var broken = AOS.memories.reduce(function (t, m) { return t + m[5].filter(function (l) { return !memory(l); }).length; }, 0);
@@ -88,7 +89,7 @@ function rulePage(id) {
   var evals = sec('Evals') + (r.evals.length ? '<div class="chartcard">' + r.evals.map(evBars).join('') + '</div>'
     : '<div class="askcard"><p>Missing eval</p><button type="button" class="btn-link" data-act="aosbrief" data-arg="neweval:' + id + '">Write one with an agent</button></div>');
   return head('Rule', r.name, 'g-ins', 'R') + '<div class="ptext">' + esc(r.text) + '</div>' + evals +
-    historyHTML([['Nov 7', 'PR #150 · version 8f32cec'], ['Nov 2', 'Added in the Nov 2 cut (#142)']]) + agentAction('rule:' + id);
+    (r.history && r.history.length ? historyHTML(r.history) : '') + agentAction('rule:' + id);
 }
 function skillPage(id) {
   var s = skill(id), info = PART_INFO[id] || { loads: [0, 0, 0, 0], used: [], loaded: [], contents: [] };
@@ -101,19 +102,20 @@ function skillPage(id) {
     (info.loaded.length ? sec('While it’s loaded') + kv(info.loaded) : '') +
     sec('Evals') + (s.evals.length ? '<div class="chartcard">' + s.evals.map(evBars).join('') + '</div>' : '<div class="askcard"><p>Missing eval</p></div>') +
     (info.contents.length ? sec('Contents') + '<ul class="list">' + info.contents.map(function (c) { return '<li><div class="row static noicon"><span class="rbody"><span class="rtitle">' + esc(c) + '</span></span></div></li>'; }).join('') + '</ul>' : '') +
-    historyHTML([['Nov 7', 'PR #151 · moved under version control'], ['Nov 2', 'Cut down (#142)']]) + agentAction('skill:' + id);
+    (s.history && s.history.length ? historyHTML(s.history) : '') + agentAction('skill:' + id);
 }
 function evalPage(k) {
+  var info = (AOS.evalInfo || {})[k], cost = evalCost([k]);
   var tests = AOS.rules.filter(function (r) { return r.evals.indexOf(k) >= 0; }).map(function (r) { return 'rule:' + r.id; })
     .concat(AOS.skills.filter(function (s) { return s.evals.indexOf(k) >= 0; }).map(function (s) { return 'skill:' + s.id; }));
   return head('Eval', k, 'g-mea', 'E') + '<div class="chartcard">' + evBars(k) + '</div>' +
-    sec('Runs') + kv([['Runs', '3 with · 3 without'], ['Last run', 'Nov 2'], ['Judge', 'Sonnet 5.5'], ['Cost a run', 'about $0.50']]) +
+    (info ? sec('Runs') + kv([['Runs', String(info.runs)], ['Last run', info.date], ['Last run without', info.baselineDate || 'none'], ['Judge', info.judgeModel], ['Cost of the last run', '$' + info.costUsd.toFixed(2)]]) : '') +
     sec('Tests') + '<ul class="list">' + tests.map(function (a) { var r = a.indexOf('rule:') === 0 ? rule(a.slice(5)) : null; return '<li>' + go(a, tile(r ? 'g-ins' : 'g-cap', r ? 'R' : 'S') + '<span class="rbody"><span class="rtitle">' + esc(r ? r.name : a.slice(6)) + '</span></span>') + '</li>'; }).join('') + '</ul>' +
-    '<div class="acts"><button type="button" class="btn-plain" data-act="out" data-arg="a run of this eval (about $0.50)">Run it · about $0.50</button></div>';
+    '<div class="acts"><button type="button" class="btn-plain" data-act="out" data-arg="a run of this eval' + (cost ? ' (' + cost + ')' : '') + '">Run it' + (cost ? ' · ' + cost : '') + '</button></div>';
 }
 function versionPage(i) {
   var v = VERSIONS[i], prev = VERSIONS[i + 1];
-  var rows = [['Sessions', String(v.sessions)], ['Cost a session', '$' + v.per.toFixed(2) + (prev ? '  (' + (v.per < prev.per ? '▼' : '▲') + ' from $' + prev.per.toFixed(2) + ')' : '')],
+  var rows = [['Sessions', String(v.sessions)], ['Cost a session', v.per == null ? '—' : '$' + v.per.toFixed(2) + (prev && prev.per != null ? '  (' + (v.per < prev.per ? '▼' : '▲') + ' from $' + prev.per.toFixed(2) + ')' : '')],
     ['Evals', v.evals === null ? 'none then' : v.evals + '% with the rules'], ['Took the agent’s pick', v.pick], ['Failed tool calls', v.failed]];
   return head('Version · since ' + v.since + ' · ' + v.note, v.v, 'g-his', 'V') + kv(rows) +
     sec('What changed') + '<ul class="list">' + v.changes.map(function (c) { return '<li><div class="row static noicon"><span class="rbody"><span class="rtitle">' + esc(c) + '</span></span></div></li>'; }).join('') + '</ul>';
@@ -143,7 +145,7 @@ function memoryPage(slug) {
 }
 function groupPage(name) {
   var g = AOS.permissions.groups.filter(function (x) { return x[0] === name; })[0];
-  var sample = { 'Bash commands': ['git *', 'gh *', 'aws *', 'terraform *', 'npm *', 'pnpm *', 'node *', 'docker *', 'curl *', 'jq *', 'cat *', 'ls *'], 'PowerShell commands': ['Get-ChildItem *', 'Get-Content *', 'Set-Location *', 'git *', 'gh *', 'npm *'], 'Claude Code tools': ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'NotebookEdit'] }[name] || [];
+  var sample = (AOS.permissions.lists || {})[name] || [];
   return '<h2 class="sh-title">' + esc(name) + '</h2><p class="fine pad">' + g[1] + ' allowed · ' + esc(g[2]) + '</p><ul class="list">' + sample.map(function (c) {
     return '<li><div class="row static noicon"><span class="rbody"><span class="rtitle mono">' + esc(c) + '</span></span></div></li>';
   }).join('') + (g[1] > sample.length ? '<li><div class="row static noicon"><span class="rbody"><span class="rquiet">and ' + (g[1] - sample.length) + ' more</span></span></div></li>' : '') + '</ul>' +
@@ -159,13 +161,14 @@ function listPage(kind) {
     return '<li>' + go('skill:' + s.id, '<span class="rbody"><span class="rtitle">' + esc(s.id) + '</span><span class="rline clamp">' + esc(s.text) + '</span><span class="rquiet">' + (n ? plural(n, 'load', 'loads') + ' in 30 days' : 'Not loaded in 30 days') + ' · ' + s.kb + ' KB</span></span>', 'noicon') + '</li>';
   }).join('') + '</ul>';
   if (kind === 'evals') {
-    var ks = Object.keys(AOS.evals), grp = [['Worse with the rules', function (e) { return e[0] < e[1]; }], ['Same either way', function (e) { return e[0] === e[1]; }], ['Better with the rules', function (e) { return e[0] > e[1]; }]];
+    var ks = Object.keys(AOS.evals), has = function (e) { return e[0] != null && e[1] != null; },
+      grp = [['Worse with the rules', function (e) { return has(e) && e[0] < e[1]; }], ['Same either way', function (e) { return has(e) && e[0] === e[1]; }], ['Better with the rules', function (e) { return has(e) && e[0] > e[1]; }], ['No run without the rules', function (e) { return !has(e); }]];
     html = grp.map(function (g) { var list = ks.filter(function (k) { return g[1](AOS.evals[k]); }); return list.length ? sec(g[0] + ' · ' + list.length) + '<div class="chartcard">' + list.map(function (k) { return '<button type="button" class="evbtn" data-act="aos" data-arg="eval:' + k + '">' + evBars(k) + '</button>'; }).join('') + '</div>' : ''; }).join('') +
-      '<div class="acts"><button type="button" class="btn-plain" data-act="out" data-arg="a run of all 18 evals (about $9)">Run all 18 · about $9</button></div>';
+      '<div class="acts"><button type="button" class="btn-plain" data-act="out" data-arg="a run of all ' + ks.length + ' evals' + (evalCost(ks) ? ' (' + evalCost(ks) + ')' : '') + '">Run all ' + ks.length + (evalCost(ks) ? ' · ' + evalCost(ks) : '') + '</button></div>';
   }
   if (kind === 'perms') html = '<ul class="list"><li>' + go('allowed', '<span class="rbody"><span class="rtitle">Allowed</span></span><span class="kvv">' + AOS.permissions.allow + '</span>', 'noicon three') + '</li>' +
     '<li>' + go('denied', '<span class="rbody"><span class="rtitle">Denied</span></span><span class="kvv">' + AOS.permissions.deny + '</span>', 'noicon three') + '</li></ul>' +
-    sec('Blocked this week') + '<ul class="list">' + AOS.permissions.blocked.map(function (b) { return '<li><div class="row static">' + appIcon(b[1]) + '<span class="rbody"><span class="rtitle">' + esc(b[2]) + '</span><span class="rline">' + esc(b[3]) + '</span><span class="rquiet">' + esc(b[0]) + '</span></span><button type="button" class="btn-link" data-act="aosbrief" data-arg="allow:' + esc(b[2]) + '">Allow</button></div></li>'; }).join('') + '</ul>';
+    sec('Blocked this week') + '<ul class="list">' + AOS.permissions.blocked.map(function (b) { return '<li><div class="row static">' + appIcon(b[1]) + '<span class="rbody"><span class="rtitle mono" style="overflow-wrap:anywhere">' + esc(b[2]) + '</span><span class="rline">' + esc(b[3]) + '</span><span class="rquiet">' + esc(b[0]) + '</span></span><button type="button" class="btn-link" data-act="aosbrief" data-arg="allow:' + esc(b[2]) + '">Allow</button></div></li>'; }).join('') + '</ul>';
   if (kind === 'allowed') html = '<ul class="list">' + AOS.permissions.groups.map(function (g) {
     return '<li>' + go('group:' + g[0], '<span class="rbody"><span class="rtitle">' + esc(g[0]) + '</span><span class="rquiet">' + esc(g[2]) + '</span></span><span class="kvv">' + g[1] + '</span>', 'noicon three') + '</li>';
   }).join('') + '</ul>';
@@ -181,7 +184,7 @@ function listPage(kind) {
       return '<li>' + go('mproject:' + p, appIcon(p) + '<span class="rbody"><span class="rtitle">' + esc(p) + '</span><span class="rquiet">' + Object.keys(types).map(function (t) { return types[t] + ' ' + TYPES[t].toLowerCase(); }).join(' · ') + '</span></span><span class="kvv">' + ms.length + '</span>', 'three') + '</li>';
     }).join('') + '</ul>' + (broken ? '<p class="fine pad2">' + plural(broken, 'memory links', 'memories link') + ' to a memory that doesn’t exist.</p>' : '');
   }
-  if (kind === 'versions') html = '<ul class="list">' + VERSIONS.map(function (v, i) { return '<li>' + go('version:' + i, '<span class="rbody"><span class="rtitle mono">' + esc(v.v) + '</span><span class="rline">' + esc(v.note) + '</span><span class="rquiet">' + v.sessions + ' sessions · $' + v.per.toFixed(2) + ' a session</span></span>', 'noicon') + '</li>'; }).join('') + '</ul>';
+  if (kind === 'versions') html = '<ul class="list">' + VERSIONS.map(function (v, i) { return '<li>' + go('version:' + i, '<span class="rbody"><span class="rtitle mono">' + esc(v.v) + '</span><span class="rline">' + esc(v.note) + '</span><span class="rquiet">' + v.sessions + ' sessions' + (v.per == null ? '' : ' · $' + v.per.toFixed(2) + ' a session') + '</span></span>', 'noicon') + '</li>'; }).join('') + '</ul>';
   return '<h2 class="sh-title">' + esc(TITLES[kind] || kind) + '</h2>' + html;
 }
 
@@ -192,7 +195,7 @@ function aosBrief(arg) {
   if (k === 'skill') brief = 'Skill “' + p[1] + '”.\n\nWhat I want changed: ';
   if (k === 'neweval') { var r2 = rule(p[1]); title = 'Write an eval'; brief = 'Write an eval case for the rule “' + r2.name + '”: one that fails without it.'; }
   if (k === 'allow') { title = 'Allow a command'; brief = 'Allow this in the permissions: ' + p.slice(1).join(':'); }
-  if (k === 'removeps') { title = 'Remove PowerShell rules'; brief = 'Remove the 191 PowerShell allow rules; boris never runs PowerShell.'; }
+  if (k === 'removeps') { title = 'Remove PowerShell rules'; brief = 'Remove the ' + (((AOS.permissions.lists || {})['PowerShell commands'] || []).length) + ' PowerShell allow rules; boris never runs PowerShell.'; }
   openSheet('<div class="sh-item"><p class="rapp">' + appIcon('agent-os') + 'agent-os</p><h2>' + esc(title) + '</h2></div>' +
     '<div class="composer tall"><label class="sr" for="brief">Brief</label><textarea id="brief" rows="6">' + esc(brief) + '</textarea></div>' +
     '<button type="button" class="btn-primary" data-act="aosstart" data-arg="' + esc(title) + '">Start a session</button>', title, 'brief');
