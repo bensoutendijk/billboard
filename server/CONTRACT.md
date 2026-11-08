@@ -113,9 +113,12 @@ question: {asked, parts: Part[]} | null, lastText }`. Times are epoch ms.
   dayPrs: { "<appKey>:<dayIndex>": [prNumber: number, title: string][] }   // [DAY_PRS] PRs merged that day
 }
 ```
-**Project**: `{ key, name, color: '#rrggbb', lastLive: string, designed: number, week: number, merges: number[7], m14: number[14], c14: number[14] }`:
-`designed` is mock rows not built yet, `week` the cost this week in dollars, `merges` PRs merged on each of the last 7 days,
-`m14` and `c14` merges and dollars per day on `days14`.
+**Project**: `{ key, name, color: '#rrggbb', lastLive: string, designed: number|null, week: number, merges: number[7], m14: number[14], c14: number[14] }`:
+`designed` is mock rows not built yet (`null`: unknown, since the server can't read the mock artifact), `week` the cost of the last 7 days in whole dollars, `merges` PRs merged on each of the last 7 days,
+`m14` and `c14` merges and whole dollars per day on `days14` (Chicago days). Merges come from `gh pr list`, cost from
+Prometheus (`claude_code_cost_usage_USD_total`) joined to a project by the folder of the session's transcript, or by the
+repos of the PRs it merged; `lastLive` is the latest merge whose deploy run passed (or the latest merge), with its day.
+`server/sources/projects.mjs` recomputes all of it every 5 minutes.
 
 ## GET /api/agentos
 ```
