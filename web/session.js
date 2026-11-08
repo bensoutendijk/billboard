@@ -54,7 +54,7 @@ function sessionBody(key) {
   var app = i ? i.app : s.app, title = i ? i.session : s.title;
   var q = i && i.who === 'ben' && i.question ? '<div class="qcard">' + answerOpts(i, false) + '<button type="button" class="btn-primary" data-act="sendanswer" data-arg="' + i.id + '"' + (picksDone(i) ? '' : ' disabled') + '>Send</button></div>' : '';
   return '<div class="sh-item"><p class="rapp">' + appIcon(app) + esc(app) + '</p><h2>' + esc(title) + '</h2>' +
-    '<button type="button" class="prlink" data-act="out" data-arg="the session">Open in the Claude app ↗</button></div>' +
+    (s && s.url ? '<a class="prlink" style="text-decoration:none" href="' + esc(s.url) + '" target="_blank" rel="noopener">Open in the Claude app ↗</a>' : !s ? '<button type="button" class="prlink" data-act="out" data-arg="the session">Open in the Claude app ↗</button>' : '') + '</div>' +
     '<div class="thread">' + threadOf(key).map(bubble).join('') + '</div>' + q +
     '<div class="composer"><label class="sr" for="reply-' + key + '">Reply</label><textarea id="reply-' + key + '" rows="2" placeholder="Reply to the agent">' + esc(S.draft[key] || '') + '</textarea>' +
     '<button type="button" class="btn-send" data-act="reply" data-arg="' + key + '" aria-label="Send">↑</button></div>' +
