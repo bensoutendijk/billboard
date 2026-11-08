@@ -4,6 +4,13 @@ Billboard runs on boris as the systemd user unit `billboard` (`deploy/billboard.
 `/home/ben/projects/billboard`, on port 4710 on all interfaces. Only the tailnet reaches boris, so the page is at
 http://boris.tail040b57.ts.net:4710. Nothing runs on AWS and no ports are opened anywhere else.
 
+## Reaching it from the tailnet
+tailscaled on boris runs in userspace mode under Agent OS's TCP connect guard (`tcp-connect-guard.py 22,53,80,443,3000,6006`
+in `~/.config/systemd/user/tailscaled.service`; agent-os ADR 0008, `docs/boris.md`). It hands a tailnet connection to
+127.0.0.1 at the same port only for the listed ports, so a connection to 4710 is refused until 4710 is added to that list
+(an agent-os change, with its line in agent-os `docs/boris.md`) and tailscaled restarted. On boris itself,
+http://localhost:4710 answers.
+
 ## How a merge reaches boris
 `.github/workflows/deploy.yml` runs on every push to master on a **self-hosted runner on boris**. It runs
 `git pull --ff-only` in the main checkout, links and restarts the unit, and checks `/api/health`.
