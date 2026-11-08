@@ -18,3 +18,10 @@ function loadBoard() {
     AOS = ao.aos; PART_INFO = ao.partInfo; VERSIONS = ao.versions;
   });
 }
+
+// Tell the server Ben opened an item or a session, so it leaves Done (POST /api/seen). Best effort: a miss only means it shows again.
+function postSeen(id) {
+  try {
+    fetch('api/seen', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id }) }).catch(function () {});
+  } catch (e) { /* offline */ }
+}

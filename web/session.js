@@ -62,7 +62,8 @@ function sessionBody(key) {
 }
 function openSession(key) {
   var i = findItem(key), s = sessionOf(key); if (s) s.unseen = false;
-  openSheet(sessionBody(key), i ? i.session : s.title, 'session-' + key); stack[stack.length - 1].redo = function () { return sessionBody(key); };
+  postSeen(s ? s.id : key);
+  openSheet(sessionBody(key), i ? i.session : s ? s.title : 'Session', 'session-' + key); stack[stack.length - 1].redo = function () { return sessionBody(key); };
 }
 
 function agentReplies(key, text) {
