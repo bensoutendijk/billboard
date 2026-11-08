@@ -77,5 +77,6 @@ function sessionRow(i) {
 }
 function itemSheet(id) {
   var i = findItem(id); if (i) i.unseen = false;
+  postSeen(id);
   openSheet(itemBody(id), i ? i.title : 'Item', 'item-' + id); stack[stack.length - 1].redo = function () { return itemBody(id); };
 }

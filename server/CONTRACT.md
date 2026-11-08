@@ -3,7 +3,7 @@
 `server/index.mjs` serves `web/` as static files and this JSON API. Node 24, ESM, standard library only, no build step.
 Port 4710 (`PORT` overrides), bound to all interfaces; the tailnet is the only way in, so there is no sign-in.
 
-Every route is `GET`, answers `application/json` and `cache-control: no-cache`. An unknown `/api/` path answers 404
+Every route is `GET` except `POST /api/seen`, and answers `application/json` and `cache-control: no-cache`. An unknown `/api/` path answers 404
 `{ "error": "No such route" }`, another method 405, and a source that throws 500 `{ "error": "<message>" }`.
 
 The front end (`web/data.js`) fetches the three board routes once at start-up and puts each field into the global the
@@ -55,14 +55,29 @@ What the Today and Work tabs, an item's page and a session's screen read.
 | `pr` | number? | its PR number |
 | `question` | `{ asked: string, parts: Part[] }`? | with `who: 'ben'`: the agent's open question |
 | `ask` | `{ kind: 'try' \| 'do' \| 'mock', text: string, liveAt: string }`? | with `who: 'ben'`: something only Ben can do; `liveAt` is `''` for mock asks |
-| `menu` | `{ asked: string, parts: Part[] }`? | a "What next?" offer after shipping; never counts as waiting |
+| `menu` | `{ asked: string, parts: Part[] }`? | a "What next?" offer after shipping; never counts as waiting. Needs Ben's input to tell from a question, so `null` for now |
 | `reason` | string? | why it is where it is, in words (not for `who: 'ben'`) |
 | `short` | string? | with `who: 'stuck'`: the reason in a few words, for a project card |
 | `overnight` | boolean? | it happened overnight |
 | `unseen` | boolean? | with `who: 'live'`: Ben hasn't opened it yet (it shows under Done) |
-| `checked` | boolean? | Ben marked a live item as working |
+| `checked` | boolean? | Ben marked a live item as working. Nothing records that yet, so `false` for now |
 | `report` | `{ works: string, left: string, needs: string }`? | the agent's last report; empty strings for nothing |
 | `facts` | `[time: string, text: string, link: string][]` | what happened, oldest first; `link` is a label or `''` |
+| `sessionId` | string | the Claude Code session id behind it, or `''`; `/api/today-work` fills `Session.item` from it |
+
+How `items.mjs` works it out (nothing is stored): an item is a PR in a `bensoutendijk` repo under `~/projects`
+(id `<app>-<pr>`; open, or merged in the last 14 days; none from before 2026-11-02), joined to the session that opened
+it (the transcript's `pr-link` records) or merged it (Prometheus `agent_os_session_pr`); or a session with no PR that is
+working now or ended its turn on a question or ask (id = the session id). A mock ask is always its own item on `fromMock`.
+- `step`: 0 no PR, 1 PR open, 2 merged and not yet live, 3 live (merged and its deploy passed, or the repo has no deploy workflow).
+- `who`, first match: `stuck` a deploy failed and no session is working; `job` a check on the open PR or the deploy is running
+  or queued; `agent` its session is working; `ben` the session's last turn ended on a question, or on an ask once the change is
+  live (mock asks at once); `live`; `stuck` the PR is open and its session ended, or it merged with no deploy run though the repo
+  has a deploy workflow; otherwise `agent` (its session is idle with the PR open).
+- `job` names: `Secret scan`, `Deploying`, `EAS build`, `TestFlight` (from the running deploy job's step), or the check's own
+  workflow name. The usual time is the median of that workflow's recent successful runs.
+- A question's parts come from the numbered options in the agent's last message, the agent's pick marked "my pick" (else the
+  first). A yes-or-no question gets `['Yes', 'No']`; an open one (which, what, this or that) gets `opts: []`: Ben replies in words.
 
 **Part**: `{ q: string, opts: string[], pick: number }`; `pick` is the agent's pick, an index into `opts`.
 
@@ -88,6 +103,12 @@ What the Today and Work tabs, an item's page and a session's screen read.
 - `{ who: 'agent', text: string }`: the agent's words
 - `{ who: 'tools', n: number, mins: number, live?: boolean }`: tool calls folded into one line
 - `{ who: 'report', works: string, left: string, needs: string }`: its report as a card
+
+## POST /api/seen
+Body `{ id: string }`: an item's or a session's id. The page posts it when it opens that item's page or session's screen.
+Answers `{ id, seen: "<ISO time>" }`, or 400 `{ error }`. `server/seen.mjs` keeps it in `~/.local/state/billboard/seen.json`
+(`BILLBOARD_STATE` overrides the folder); its `isSeen(id, doneAt)` is how a source sets `unseen`. Anything finished before
+that file was first made counts as seen. `Now.lastLooked` is the last time Ben opened something before this visit, or `''`.
 
 ## GET /api/projects
 ```
