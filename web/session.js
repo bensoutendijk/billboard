@@ -18,11 +18,14 @@ function pickOpt(arg) {
   a[+p[1]] = a[+p[1]] === +p[2] ? undefined : +p[2];
   refresh();
 }
-function picksDone(i) { var a = PICKS[i.id] || []; return i.question.parts.every(function (p, k) { return a[k] !== undefined; }); }
+// A part asked without options (an open question) needs words, not a pick: Reply answers it.
+function picksDone(i) { var a = PICKS[i.id] || []; return i.question.parts.every(function (p, k) { return !p.opts.length || a[k] !== undefined; }) && i.question.parts.some(function (p) { return p.opts.length; }); }
 function answerOpts(i, compact) {
   var a = PICKS[i.id] || [];
   return i.question.parts.map(function (p, qi) {
-    return (qi || !compact ? '<p class="qtext">' + esc(p.q) + '</p>' : '') + '<div class="aopts">' + p.opts.map(function (o, oi) {
+    var head = qi || !compact ? '<p class="qtext">' + esc(p.q) + '</p>' : '';
+    if (!p.opts.length) return head + '<p class="fine">No options: reply in your own words.</p>';
+    return head + '<div class="aopts">' + p.opts.map(function (o, oi) {
       return '<button type="button" class="aopt' + (a[qi] === oi ? ' on' : '') + '" data-act="pick" data-arg="' + i.id + ':' + qi + ':' + oi + '"><span class="qn">' + (oi + 1) + '</span><span>' + esc(o) +
         (p.pick === oi ? '<span class="qpick">Agent’s pick</span>' : '') + '</span></button>';
     }).join('') + '</div>';
@@ -55,7 +58,7 @@ function sessionBody(key) {
   var app = i ? i.app : s.app, title = i ? i.session || (s ? s.title : 'Its session') : s.title, t = threadOf(key);
   var q = i && i.who === 'ben' && i.question ? '<div class="qcard">' + answerOpts(i, false) + '<button type="button" class="btn-primary" data-act="sendanswer" data-arg="' + i.id + '"' + (picksDone(i) ? '' : ' disabled') + '>Send</button></div>' : '';
   return '<div class="sh-item"><p class="rapp">' + appIcon(app) + esc(app) + '</p><h2>' + esc(title) + '</h2>' +
-    outLink(sessionUrl(s), 'prlink', 'Open in the Claude app ↗') + '</div>' +
+    (s && s.url ? outLink(s.url, 'prlink', 'Open in the Claude app ↗') : '') + '</div>' +
     '<div class="thread">' + (t.length ? t.map(bubble).join('') : '<p class="fine">Billboard can’t read this conversation yet.</p>') + '</div>' + q +
     '<div class="composer"><label class="sr" for="reply-' + key + '">Reply</label><textarea id="reply-' + key + '" rows="2" placeholder="Reply to the agent">' + esc(S.draft[key] || '') + '</textarea>' +
     '<button type="button" class="btn-send" data-act="reply" data-arg="' + key + '" aria-label="Send">↑</button></div>' +

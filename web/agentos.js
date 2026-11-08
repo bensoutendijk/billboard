@@ -20,7 +20,8 @@
 function rule(id) { return AOS.rules.filter(function (r) { return r.id === id; })[0]; }
 function skill(id) { return AOS.skills.filter(function (s) { return s.id === id; })[0]; }
 function memory(slug) { return AOS.memories.filter(function (m) { return m[1] === slug; })[0]; }
-function evalAvg(which) { var v = Object.keys(AOS.evals).map(function (k) { return AOS.evals[k][which]; }); return v.length ? Math.round(v.reduce(function (a, b) { return a + b; }, 0) / v.length) : 0; }
+function evalAvg(which) { var v = Object.keys(AOS.evals).map(function (k) { return AOS.evals[k][which]; }).filter(function (x) { return x != null; }); return v.length ? Math.round(v.reduce(function (a, b) { return a + b; }, 0) / v.length) : null; }
+function evalCost(names) { var c = names.reduce(function (t, k) { var i = (AOS.evalInfo || {})[k]; return t + (i && i.costUsd || 0); }, 0); return c ? 'about $' + (c < 10 ? c.toFixed(2) : Math.round(c)) : ''; }
 function typeName(t) { return TYPES[t] || String(t || 'Memory'); }
 function money(n) { return n == null || isNaN(n) ? '—' : '$' + (+n).toFixed(2); }
 function gone(what) { return '<p class="empty">' + esc(what) + ' isn’t in Agent OS any more.</p>'; }
@@ -30,8 +31,8 @@ function sec(t) { return '<h2 class="sec">' + esc(t) + '</h2>'; }
 function kv(rows) { return '<ul class="list kv">' + rows.map(function (r) { return '<li><div class="row static"><span class="kk">' + esc(r[0]) + '</span><span class="kvv">' + esc(r[1]) + '</span></div></li>'; }).join('') + '</ul>'; }
 function evBars(name) {
   var e = AOS.evals[name];
-  return '<div class="evrow"><span class="evname">' + esc(name) + '</span><span class="evnums">' + e[0] + '% <span class="muted">· ' + e[1] + '% without</span></span>' +
-    '<span class="evbar"><i style="width:' + e[0] + '%"></i></span><span class="evbar wo"><i style="width:' + e[1] + '%"></i></span></div>';
+  return '<div class="evrow"><span class="evname">' + esc(name) + '</span><span class="evnums">' + (e[0] == null ? 'not run' : e[0] + '%') + ' <span class="muted">· ' + (e[1] == null ? 'no run without' : e[1] + '% without') + '</span></span>' +
+    '<span class="evbar"><i style="width:' + (e[0] || 0) + '%"></i></span><span class="evbar wo"><i style="width:' + (e[1] || 0) + '%"></i></span></div>';
 }
 function head(kind, title, cls, glyph) { return '<div class="sh-item"><p class="rapp">' + tile(cls + ' sm', glyph) + esc(kind) + '</p><h2>' + esc(title) + '</h2></div>'; }
 function agentAction(arg, label) { return '<div class="acts"><button type="button" class="btn-primary" data-act="aosbrief" data-arg="' + arg + '">' + esc(label || 'Change with an agent') + '</button></div>'; }
@@ -42,7 +43,7 @@ var TYPES = { feedback: 'Feedback', project: 'Project', reference: 'Reference', 
 
 // The tab.
 function agentosHTML() {
-  var worse = Object.keys(AOS.evals).filter(function (k) { return AOS.evals[k][0] < AOS.evals[k][1]; }).length;
+  var worse = Object.keys(AOS.evals).filter(function (k) { var e = AOS.evals[k]; return e[0] != null && e[1] != null && e[0] < e[1]; }).length;
   var missing = AOS.rules.filter(function (r) { return !r.evals.length; }).length;
   var projects = AOS.memories.map(function (m) { return m[0]; }).filter(function (p, k, a) { return a.indexOf(p) === k; }).length;
   var broken = AOS.memories.reduce(function (t, m) { return t + m[5].filter(function (l) { return !memory(l); }).length; }, 0);
@@ -50,7 +51,7 @@ function agentosHTML() {
   var rows = [
     ['rules', 'Rules', AOS.rules.length + ' · ' + missing + ' missing an eval', 'g-ins', 'R', 0],
     ['skills', 'Skills', AOS.skills.length + ' · ' + plural(loads, 'load', 'loads') + ' in 30 days', 'g-cap', 'S', 0],
-    ['evals', 'Evals', Object.keys(AOS.evals).length ? Object.keys(AOS.evals).length + ' · ' + evalAvg(0) + '% with the rules, ' + evalAvg(1) + '% without' : 'None yet', 'g-mea', 'E', worse],
+    ['evals', 'Evals', Object.keys(AOS.evals).length ? Object.keys(AOS.evals).length + (evalAvg(0) == null ? ' · not run' : ' · ' + evalAvg(0) + '% with the rules' + (evalAvg(1) == null ? '' : ', ' + evalAvg(1) + '% without')) : 'None yet', 'g-mea', 'E', worse],
     ['perms', 'Permissions', AOS.permissions.allow + ' allowed · ' + AOS.permissions.deny + ' denied', 'g-cap', 'P', AOS.permissions.blocked.length],
     ['memories', 'Memories', AOS.memories.length + ' in ' + projects + ' projects · ' + plural(broken, 'missing link', 'missing links'), 'g-ins', 'M', 0]
   ];
@@ -93,7 +94,7 @@ function rulePage(id) {
   var evals = sec('Evals') + (r.evals.length ? '<div class="chartcard">' + r.evals.map(evBars).join('') + '</div>'
     : '<div class="askcard"><p>Missing eval</p><button type="button" class="btn-link" data-act="aosbrief" data-arg="neweval:' + id + '">Write one with an agent</button></div>');
   return head('Rule', r.name, 'g-ins', 'R') + '<div class="ptext">' + esc(r.text) + '</div>' + evals +
-    historyHTML(r.history) + agentAction('rule:' + id);
+    (r.history && r.history.length ? historyHTML(r.history) : '') + agentAction('rule:' + id);
 }
 function skillPage(id) {
   var s = skill(id); if (!s) return gone('This skill');
@@ -107,16 +108,17 @@ function skillPage(id) {
     (info.loaded.length ? sec('While it’s loaded') + kv(info.loaded) : '') +
     sec('Evals') + (s.evals.length ? '<div class="chartcard">' + s.evals.map(evBars).join('') + '</div>' : '<div class="askcard"><p>Missing eval</p></div>') +
     (info.contents.length ? sec('Contents') + '<ul class="list">' + info.contents.map(function (c) { return '<li><div class="row static noicon"><span class="rbody"><span class="rtitle">' + esc(c) + '</span></span></div></li>'; }).join('') + '</ul>' : '') +
-    historyHTML(s.history) + agentAction('skill:' + id);
+    (s.history && s.history.length ? historyHTML(s.history) : '') + agentAction('skill:' + id);
 }
 function evalPage(k) {
   if (!AOS.evals[k]) return gone('This eval');
+  var info = (AOS.evalInfo || {})[k], cost = evalCost([k]);
   var tests = AOS.rules.filter(function (r) { return r.evals.indexOf(k) >= 0; }).map(function (r) { return 'rule:' + r.id; })
     .concat(AOS.skills.filter(function (s) { return s.evals.indexOf(k) >= 0; }).map(function (s) { return 'skill:' + s.id; }));
   return head('Eval', k, 'g-mea', 'E') + '<div class="chartcard">' + evBars(k) + '</div>' +
-    sec('Runs') + (AOS.runs && AOS.runs[k] ? kv(AOS.runs[k]) : '<p class="fine pad2">Billboard doesn’t read eval runs yet.</p>') +
+    (info ? sec('Runs') + kv([['Runs', String(info.runs)], ['Last run', info.date || '—'], ['Last run without', info.baselineDate || 'none'], ['Judge', info.judgeModel || '—'], ['Cost of the last run', money(info.costUsd)]]) : '') +
     sec('Tests') + (tests.length ? '<ul class="list">' + tests.map(function (a) { var r = a.indexOf('rule:') === 0 ? rule(a.slice(5)) : null; return '<li>' + go(a, tile(r ? 'g-ins' : 'g-cap', r ? 'R' : 'S') + '<span class="rbody"><span class="rtitle">' + esc(r ? r.name : a.slice(6)) + '</span></span>') + '</li>'; }).join('') + '</ul>' : '<p class="fine pad2">No rule or skill names this eval.</p>') +
-    '<div class="acts"><button type="button" class="btn-plain" data-act="nowired">Run it</button></div>';
+    '<div class="acts"><button type="button" class="btn-plain" data-act="nowired">Run it' + (cost ? ' · ' + cost : '') + '</button></div>';
 }
 function versionPage(i) {
   var v = VERSIONS[i], prev = VERSIONS[i + 1]; if (!v) return gone('This version');
@@ -152,7 +154,7 @@ function memoryPage(slug) {
 function groupPage(name) {
   var g = AOS.permissions.groups.filter(function (x) { return x[0] === name; })[0];
   if (!g) return gone('This group');
-  var sample = Array.isArray(g[3]) ? g[3] : [];  // the group's rules, when the source sends them
+  var sample = (AOS.permissions.lists || {})[name] || [];
   return '<h2 class="sh-title">' + esc(name) + '</h2><p class="fine pad">' + g[1] + ' allowed · ' + esc(g[2]) + '</p><ul class="list">' + sample.map(function (c) {
     return '<li><div class="row static noicon"><span class="rbody"><span class="rtitle mono">' + esc(c) + '</span></span></div></li>';
   }).join('') + (sample.length && g[1] > sample.length ? '<li><div class="row static noicon"><span class="rbody"><span class="rquiet">and ' + (g[1] - sample.length) + ' more</span></span></div></li>' : '') + '</ul>' +
@@ -168,13 +170,14 @@ function listPage(kind) {
     return '<li>' + go('skill:' + s.id, '<span class="rbody"><span class="rtitle">' + esc(s.id) + '</span><span class="rline clamp">' + esc(s.text) + '</span><span class="rquiet">' + (n ? plural(n, 'load', 'loads') + ' in 30 days' : 'Not loaded in 30 days') + ' · ' + s.kb + ' KB</span></span>', 'noicon') + '</li>';
   }).join('') + '</ul>';
   if (kind === 'evals') {
-    var ks = Object.keys(AOS.evals), grp = [['Worse with the rules', function (e) { return e[0] < e[1]; }], ['Same either way', function (e) { return e[0] === e[1]; }], ['Better with the rules', function (e) { return e[0] > e[1]; }]];
+    var ks = Object.keys(AOS.evals), has = function (e) { return e[0] != null && e[1] != null; },
+      grp = [['Worse with the rules', function (e) { return has(e) && e[0] < e[1]; }], ['Same either way', function (e) { return has(e) && e[0] === e[1]; }], ['Better with the rules', function (e) { return has(e) && e[0] > e[1]; }], ['No run without the rules', function (e) { return !has(e); }]];
     html = grp.map(function (g) { var list = ks.filter(function (k) { return g[1](AOS.evals[k]); }); return list.length ? sec(g[0] + ' · ' + list.length) + '<div class="chartcard">' + list.map(function (k) { return '<button type="button" class="evbtn" data-act="aos" data-arg="eval:' + k + '">' + evBars(k) + '</button>'; }).join('') + '</div>' : ''; }).join('') +
-      (ks.length ? '<div class="acts"><button type="button" class="btn-plain" data-act="nowired">Run all ' + ks.length + '</button></div>' : '<p class="empty">No evals yet.</p>');
+      (ks.length ? '<div class="acts"><button type="button" class="btn-plain" data-act="nowired">Run all ' + ks.length + (evalCost(ks) ? ' · ' + evalCost(ks) : '') + '</button></div>' : '<p class="empty">No evals yet.</p>');
   }
   if (kind === 'perms') html = '<ul class="list"><li>' + go('allowed', '<span class="rbody"><span class="rtitle">Allowed</span></span><span class="kvv">' + AOS.permissions.allow + '</span>', 'noicon three') + '</li>' +
     '<li>' + go('denied', '<span class="rbody"><span class="rtitle">Denied</span></span><span class="kvv">' + AOS.permissions.deny + '</span>', 'noicon three') + '</li></ul>' +
-    sec('Blocked this week') + '<ul class="list">' + AOS.permissions.blocked.map(function (b) { return '<li><div class="row static">' + appIcon(b[1]) + '<span class="rbody"><span class="rtitle">' + esc(b[2]) + '</span><span class="rline">' + esc(b[3]) + '</span><span class="rquiet">' + esc(b[0]) + '</span></span><button type="button" class="btn-link" data-act="aosbrief" data-arg="allow:' + esc(b[2]) + '">Allow</button></div></li>'; }).join('') + '</ul>';
+    sec('Blocked this week') + '<ul class="list">' + AOS.permissions.blocked.map(function (b) { return '<li><div class="row static">' + appIcon(b[1]) + '<span class="rbody"><span class="rtitle mono" style="overflow-wrap:anywhere">' + esc(b[2]) + '</span><span class="rline">' + esc(b[3]) + '</span><span class="rquiet">' + esc(b[0]) + '</span></span><button type="button" class="btn-link" data-act="aosbrief" data-arg="allow:' + esc(b[2]) + '">Allow</button></div></li>'; }).join('') + '</ul>';
   if (kind === 'allowed') html = '<ul class="list">' + AOS.permissions.groups.map(function (g) {
     return '<li>' + go('group:' + g[0], '<span class="rbody"><span class="rtitle">' + esc(g[0]) + '</span><span class="rquiet">' + esc(g[2]) + '</span></span><span class="kvv">' + g[1] + '</span>', 'noicon three') + '</li>';
   }).join('') + '</ul>';
@@ -190,7 +193,7 @@ function listPage(kind) {
       return '<li>' + go('mproject:' + p, appIcon(p) + '<span class="rbody"><span class="rtitle">' + esc(p) + '</span><span class="rquiet">' + Object.keys(types).map(function (t) { return types[t] + ' ' + typeName(t).toLowerCase(); }).join(' · ') + '</span></span><span class="kvv">' + ms.length + '</span>', 'three') + '</li>';
     }).join('') + '</ul>' + (broken ? '<p class="fine pad2">' + plural(broken, 'memory links', 'memories link') + ' to a memory that doesn’t exist.</p>' : '');
   }
-  if (kind === 'versions') html = '<ul class="list">' + VERSIONS.map(function (v, i) { return '<li>' + go('version:' + i, '<span class="rbody"><span class="rtitle mono">' + esc(v.v) + '</span><span class="rline">' + esc(v.note) + '</span><span class="rquiet">' + (v.sessions || 0) + ' sessions · ' + money(v.per) + ' a session</span></span>', 'noicon') + '</li>'; }).join('') + '</ul>';
+  if (kind === 'versions') html = '<ul class="list">' + VERSIONS.map(function (v, i) { return '<li>' + go('version:' + i, '<span class="rbody"><span class="rtitle mono">' + esc(v.v) + '</span><span class="rline">' + esc(v.note) + '</span><span class="rquiet">' + (v.sessions || 0) + ' sessions' + (v.per == null ? '' : ' · ' + money(v.per) + ' a session') + '</span></span>', 'noicon') + '</li>'; }).join('') + '</ul>';
   return '<h2 class="sh-title">' + esc(TITLES[kind] || kind) + '</h2>' + html;
 }
 

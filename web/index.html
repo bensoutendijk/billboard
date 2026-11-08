@@ -330,6 +330,8 @@ button.row:active, .ocard:active, .acard:active, .wcard:active { background: var
 .fine.pad { padding: 0 4px; margin-top: -8px; }
 .fine.stale { padding: 0 4px; }
 .fquiet { color: var(--muted); font-size: 15px; }
+/* Real reports and messages carry long URLs and paths: let them wrap rather than widen the page. */
+.report dd, .msg, .ptext, .fx, .askcard p, .wq, .qtext, .rline, .rtitle, .oreason, .sh-item h2, .sh-who span { overflow-wrap: anywhere; min-width: 0; }
 .sh-item { display: grid; gap: 6px; padding: 0 4px; }
 .sh-who { margin: 2px 0 0; display: flex; gap: 8px; align-items: baseline; font-size: 15px; color: var(--label2); }
 .trackcard { background: var(--card); border-radius: 14px; padding: 14px 8px 12px; }

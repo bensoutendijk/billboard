@@ -25,6 +25,8 @@ function normItem(i) {
   i.title = i.title || 'Untitled'; i.session = i.session || '';
   if (i.who === 'job' && !i.job) i.job = 'Job';
   if (i.question && !(i.question.parts && i.question.parts.length)) i.question = null;
+  if (i.question) i.question.parts.forEach(function (p) { p.opts = p.opts || []; p.q = p.q || ''; });
+  if (i.menu && i.menu.parts) i.menu.parts.forEach(function (p) { p.opts = p.opts || []; });
   if (i.who === 'ben' && !i.question && !i.ask) i.ask = { kind: 'do', text: i.reason || 'Only you can do this.', liveAt: '' };
   if (i.ask) { if (['try', 'do', 'mock'].indexOf(i.ask.kind) < 0) i.ask.kind = 'do'; i.ask.text = i.ask.text || 'Only you can do this.'; i.ask.liveAt = i.ask.liveAt || ''; }
   if (i.menu && !(i.menu.parts && i.menu.parts.length)) i.menu = null;
@@ -35,7 +37,7 @@ function normItem(i) {
 }
 function normSession(s) {
   if (STATES.indexOf(s.state) < 0) s.state = 'paused';
-  s.cost = +s.cost || 0; s.doing = s.doing || ''; s.title = s.title || 'Untitled session'; s.item = s.item || '';
+  s.cost = s.cost == null || isNaN(s.cost) ? null : +s.cost; s.doing = s.doing || ''; s.title = s.title || 'Untitled session'; s.item = s.item || '';
   if (SEEN[s.id]) s.unseen = false;
   return s;
 }
@@ -47,7 +49,6 @@ function start() {
 var GH = 'https://github.com/bensoutendijk/';
 function ghUrl(app, path) { return GH + encodeURIComponent(app) + (path || ''); }
 function mockOf(app) { var m = appOf(app).mock; return m && m.url ? m : { name: 'the mock', url: 'https://claude.ai/code/artifacts' }; }
-function sessionUrl(s) { return (s && s.url) || 'https://claude.ai/code'; }
 function outLink(href, cls, html) { return '<a class="' + cls + '" href="' + esc(href) + '" target="_blank" rel="noopener">' + html + '</a>'; }
 function factUrl(app, label) {
   var m = /^PR #(\d+)/.exec(label);

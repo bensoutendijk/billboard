@@ -25,6 +25,7 @@ var ROUTES = {
     var a = ao.aos || {}, p = a.permissions || {};
     AOS = { version: a.version || '', rules: a.rules || [], evals: a.evals || {}, skills: a.skills || [], memories: a.memories || [],
       permissions: { allow: p.allow || 0, deny: p.deny || 0, groups: p.groups || [], denied: p.denied || [], blocked: p.blocked || [] } };
+    Object.keys(p).forEach(function (k) { if (!(k in AOS.permissions)) AOS.permissions[k] = p[k]; });
     Object.keys(a).forEach(function (k) { if (!(k in AOS)) AOS[k] = a[k]; });
     PART_INFO = ao.partInfo || {}; VERSIONS = ao.versions || [];
   }
@@ -50,6 +51,6 @@ function markSeen(id) {
   if (!id || SEEN[id]) return;
   SEEN[id] = true;
   try {
-    fetch('api/seen', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id }) }).catch(function () { /* not there yet */ });
+    fetch('api/seen', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id }) }).catch(function () { /* offline */ });
   } catch (err) { /* no fetch */ }
 }
