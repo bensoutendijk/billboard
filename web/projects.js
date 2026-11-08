@@ -78,7 +78,7 @@ function appDetail(key) {
     '<p class="ctitle">Cost per day</p>' + bars(a.c14, 'short', key, sel, function (v) { return '$' + v; }, 7) + dayAxis() +
     '<p class="legend"><span class="lg cur"></span>This week<span class="lg prev"></span>Last week</p>' + dayLine + '</div>' +
     '<dl class="report"><dt>Last live</dt><dd>' + esc(a.lastLive) + '</dd>' +
-    '<dt>Designed</dt><dd>' + (a.designed ? '<button type="button" class="flink" data-act="out" data-arg="the mock">' + a.designed + ' rows not built yet</button>' : 'Nothing waiting in the mock') + '</dd></dl>' +
+    '<dt>Designed</dt><dd>' + (a.designed == null ? '<button type="button" class="flink" data-act="out" data-arg="the mock">In the mock</button>' : a.designed ? '<button type="button" class="flink" data-act="out" data-arg="the mock">' + a.designed + ' rows not built yet</button>' : 'Nothing waiting in the mock') + '</dd></dl>' +
     (its.length ? '<div class="ocards">' + its.map(orderCard).join('') + '</div>' : '<p class="empty">Nothing open.</p>');
 }
 function projectPage(key) { openSheet(appDetail(key), appOf(key).name, 'project-' + key); stack[stack.length - 1].redo = function () { return appDetail(key); }; }
