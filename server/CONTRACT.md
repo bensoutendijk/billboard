@@ -70,14 +70,15 @@ How `items.mjs` works it out (nothing is stored): an item is a PR in a `bensoute
 it (the transcript's `pr-link` records) or merged it (Prometheus `agent_os_session_pr`); or a session with no PR that is
 working now or ended its turn on a question or ask (id = the session id). A mock ask is always its own item on `fromMock`.
 - `step`: 0 no PR, 1 PR open, 2 merged and not yet live, 3 live (merged and its deploy passed, or the repo has no deploy workflow).
-- `who`, first match: `stuck` a deploy failed and no session is working; `job` a check on the open PR or the deploy is running
+- `who`, first match: `stuck` a deploy failed and no session is working; `stuck` the deploy run has been queued over 15 minutes
+  (no runner picked it up) and no session is working; `job` a check on the open PR or the deploy is running
   or queued; `agent` its session is working; `ben` the session's last turn ended on a question, or on an ask once the change is
   live (mock asks at once); `live`; `stuck` the PR is open and its session ended, or it merged with no deploy run though the repo
   has a deploy workflow; otherwise `agent` (its session is idle with the PR open).
 - `job` names: `Secret scan`, `Deploying`, `EAS build`, `TestFlight` (from the running deploy job's step), or the check's own
   workflow name. The usual time is the median of that workflow's recent successful runs.
 - A question's parts come from the numbered options in the agent's last message, the agent's pick marked "my pick" (else the
-  first). A yes-or-no question gets `['Yes', 'No']`; an open one (which, what, this or that) gets `opts: []`: Ben replies in words.
+  first). A numbered heading with lettered options under it and no question mark counts as a question too. A yes-or-no question gets `['Yes', 'No']`; an open one (which, what, this or that) gets `opts: []`: Ben replies in words.
 
 **Part**: `{ q: string, opts: string[], pick: number }`; `pick` is the agent's pick, an index into `opts`.
 
@@ -96,7 +97,7 @@ working now or ended its turn on a question or ask (id = the session id). A mock
 | `helpers` | number? | subagents running |
 | `branch` | string? | |
 | `item` | string | the item it works on, or `''` |
-| `unseen` | boolean? | with `state: 'done'`: Ben hasn't opened it yet (not known yet for real sessions, so left out) |
+| `unseen` | boolean? | with `state: 'done'`: Ben hasn't opened it since its turn ended (`isSeen` in `server/seen.mjs`); Done lists it only when it has no item |
 | `url` | string \| null | the session in the Claude app (`https://claude.ai/code/session_…`), `null` when it has no app session |
 
 Where sessions come from (`server/sources/sessions.mjs`): `claude agents --json` and `~/.claude/sessions/<pid>.json` for

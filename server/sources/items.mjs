@@ -26,6 +26,7 @@ const DAY = 86400e3;
 const WINDOW = 14 * DAY;
 const REFRESH_MS = 60e3;
 const WORKFLOWS_MS = 10 * 60e3;
+const QUEUED_STUCK = 15 * 60e3; // a deploy run queued this long with no runner is stuck, not a job
 const DEPLOY_GRACE = 10 * 60e3; // a merge this recent with no deploy run yet is waiting for one, not stuck
 
 // ---------- small helpers ----------
@@ -251,7 +252,16 @@ function cleanOpt(t) {
 }
 // A yes-or-no question gets Yes and No; an open one (which, what, where, this or that) gets no options: Ben replies in words.
 const OPEN_Q = /^(?:[^:]*:\s*)?(which|what|where|when|who|how|why)\b|\bor\b[^?]*\?\s*$/i;
-const yesNo = (t, q = t) => (OPEN_Q.test(q) ? { opts: [], pick: 0 } : { opts: ['Yes', 'No'], pick: /my pick is no|no is my pick/i.test(t) ? 1 : 0 });
+// "Should I X, or Y?" offers X and Y; the agent's pick is the one its "My pick is to …" names (else the first).
+function eitherOr(t, q) {
+  const m = q.match(/^(?:should i|shall i|should we|do you want me to|would you like me to)\s+(.+?),?\s+or\s+(.+?)\?$/i);
+  if (!m || m[1].split(/\s+/).length > 14 || m[2].split(/\s+/).length > 14) return null;
+  const opts = [m[1], m[2]].map((o) => o.replace(/^(?:i\s+|we\s+)?/i, '').replace(/^./, (c) => c.toUpperCase()));
+  const said = (t.match(/my pick is (?:to )?([^.]+)/i) || [])[1] || '';
+  const w = (o) => o.split(/\s+/)[0].toLowerCase();
+  return { opts, pick: said && said.toLowerCase().startsWith(w(opts[1])) && !said.toLowerCase().startsWith(w(opts[0])) ? 1 : 0 };
+}
+const yesNo = (t, q = t) => eitherOr(t, q) || (OPEN_Q.test(q) ? { opts: [], pick: 0 } : { opts: ['Yes', 'No'], pick: /my pick is no|no is my pick/i.test(t) ? 1 : 0 });
 
 // The open question(s) at the end of the message, as parts { q, opts, pick }; [] for none.
 function parseQuestion(text) {
@@ -277,10 +287,11 @@ function parseQuestion(text) {
       else break;
     }
     const lead = k > 0 ? plain(flat[k - 1]) : '';
-    if (items.length >= 1 && items.some((i) => /\?/.test(i.text))) {
+    if (items.length >= 1 && items.some((i) => /\?/.test(i.text) || i.subs.length >= 2)) {
       for (const i of items) {
-        if (!/\?/.test(i.text)) continue;
-        const q = plain(i.text.slice(0, i.text.indexOf('?') + 1));
+        // A numbered question, or a numbered heading with lettered options under it ("For the sites that refuse:").
+        if (!/\?/.test(i.text) && i.subs.length < 2) continue;
+        const q = /\?/.test(i.text) ? plain(i.text.slice(0, i.text.indexOf('?') + 1)) : plain(i.text).replace(/[\s:,;.—–-]+$/, '') + '?';
         if (i.subs.length >= 2) {
           const pick = Math.max(0, i.subs.findIndex((x) => /my pick/i.test(x)));
           parts.push({ q, opts: i.subs.map(cleanOpt), pick });
@@ -333,7 +344,7 @@ function parseAsk(text) {
     ask = two.length > 300 ? firstSentence(ask, 240) : two;
   }
   ask = ask.replace(/^./, (c) => c.toUpperCase());
-  const kind = /\bmock(s)?\b/i.test(ask) && /build it|in the mock|the mock on your phone|mock first/i.test(ask) ? 'mock'
+  const kind = (/\bmock(s)?\b/i.test(ask) && /build it|in the mock|the mock on your phone|mock first/i.test(ask)) || /\bsay\W{0,2}build it\b/i.test(ask) ? 'mock'
     : /\btry\b|on your phone|\bcheck\b|\blook\b|\bopen\b/i.test(ask) ? 'try' : 'do';
   return { kind, text: ask };
 }
@@ -510,7 +521,7 @@ async function prItem(it, ctx) {
   if (pr.mergedAt) facts.push([merged, 'Merged', '']);
   let failText = '';
   if (dep?.state === 'passed') facts.push([dep.at, 'Deploy passed, live', 'Deploy run']);
-  if (dep?.state === 'running') facts.push([dep.at, 'Deploy run started', 'Deploy run']);
+  if (dep?.state === 'running') facts.push(dep.run.status === 'in_progress' ? [dep.at, 'Deploy run started', 'Deploy run'] : [ms(dep.run.createdAt), 'Deploy run queued', 'Deploy run']);
   if (dep?.state === 'failed') { failText = await failedAt(dep.run); facts.push([dep.at, 'Deploy failed' + (failText ? ` at ${failText}` : ''), 'Deploy run']); }
   if (question) facts.push([f.at, question.length === 1 ? 'Asked you a question' : `Asked you ${question.length} questions`, '']);
   else if (ask) facts.push([f.at, 'Asked you: ' + firstSentence(ask.text, 80), '']);
@@ -534,6 +545,9 @@ async function prItem(it, ctx) {
   } else if (check) {
     const ran = Number.isFinite(check.startedAt) ? now - check.startedAt : null;
     set('job', { job: check.name, reason: `${check.name} on ${prLabel}` + (ran != null ? `, running ${dur(ran)}.` : ', queued.') + (check.usual ? ` It usually takes ${dur(check.usual)}.` : '') });
+  } else if (dep?.state === 'running' && dep.run.status !== 'in_progress' && now - ms(dep.run.createdAt) > QUEUED_STUCK && !busy) {
+    // A deploy run that no runner has picked up for this long won't start on its own (on boris: no runner registered).
+    set('stuck', { reason: `Deploy run for ${prLabel} has been queued ${dur(now - ms(dep.run.createdAt))}; no runner has picked it up.`, short: 'Deploy not picked up' });
   } else if (dep && (dep.state === 'running' || dep.state === 'pending')) {
     const job = dep.run ? await deployJob(dep.run) : 'Deploying';
     const usual = dep.run ? usualTime(repo, dep.run.workflowName) : null;
