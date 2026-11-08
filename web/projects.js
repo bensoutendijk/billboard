@@ -26,7 +26,7 @@ function appWorst(key) {
   }
   if (its.some(function (i) { return i.who === 'agent'; })) return { rank: 'agent', text: 'An agent is working', cls: 'indigo' };
   var job = its.filter(function (i) { return i.who === 'job'; })[0];
-  if (job) return { rank: 'job', text: job.job + ' running', cls: 'teal' };
+  if (job) return { rank: 'job', text: /ing$/.test(job.job) ? job.job : job.job + ' running', cls: 'teal' };
   return { rank: 'none', text: 'Quiet', cls: 'muted' };
 }
 function openCount(key) { return S.items.filter(function (i) { return i.app === key && i.who !== 'live'; }).length; }

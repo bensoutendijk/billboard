@@ -7,6 +7,7 @@ import { execFile } from 'node:child_process';
 import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
+import { isSeen } from '../seen.mjs';
 
 const HOME = homedir();
 const PROJECTS = join(HOME, 'projects');
@@ -498,7 +499,7 @@ function build(st, liveInfo, prom, helpers, now) {
     prsMerged: [...merged], report: report ? { works: report.works, left: report.left, needs: report.needs } : null,
     question: question ? { asked: since(endedAt, now), parts: question } : null, lastText: st.lastText
   };
-  return { s, facts, at: Math.max(st.lastAt, liveInfo ? liveInfo.statusAt : 0) };
+  return { s, facts, at: Math.max(st.lastAt, liveInfo ? liveInfo.statusAt : 0), doneAt: endedAt };
 }
 
 // ---------- the cache ----------
@@ -521,7 +522,7 @@ async function rebuild() {
   rows.sort((a, b) => order[a.s.state] - order[b.s.state] || b.at - a.at);
   const threads = {};
   for (const r of rows) threads[r.s.id] = foldThread(transcripts.get(r.s.id), r.s.state === 'working' || r.s.state === 'job');
-  cache = { at: now, sessions: rows.map((r) => r.s), threads, facts: Object.fromEntries(rows.map((r) => [r.s.id, r.facts])) };
+  cache = { at: now, sessions: rows.map((r) => r.s), threads, facts: Object.fromEntries(rows.map((r) => [r.s.id, r.facts])), doneAt: new Map(rows.map((r) => [r.s.id, r.doneAt])) };
   return cache;
 }
 function refresh() {
@@ -536,7 +537,14 @@ async function current() {
 setInterval(refresh, REFRESH_MS).unref();
 refresh();
 
-export async function getSessions() { return structuredClone((await current()).sessions); }
+// unseen is read at request time from server/seen.mjs, so a session opened a moment ago leaves Done at once.
+export async function getSessions() {
+  const c = await current();
+  return structuredClone(c.sessions).map((s) => {
+    if (s.state === 'done') s.unseen = !isSeen(s.id, c.doneAt?.get(s.id));
+    return s;
+  });
+}
 export async function getThreads() { return structuredClone((await current()).threads); }
 // For items.mjs: per session id, what it opened and merged, its report and question, its cwd and when its turn ended.
 export async function getSessionFacts() { return structuredClone((await current()).facts); }

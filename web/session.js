@@ -12,6 +12,12 @@
 */
 'use strict';
 
+// Agents write Markdown: keep its line breaks, drop bold and code marks, and show a link as its words.
+function agentText(t) {
+  return esc(String(t || '').replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '$1').replace(/\*\*|__|`/g, '').replace(/^#{1,6}\s+/gm, ''))
+    .replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
+}
+
 var PICKS = {};
 function pickOpt(arg) {
   var p = arg.split(':'), a = PICKS[p[0]] = PICKS[p[0]] || [];
@@ -50,7 +56,7 @@ function bubble(m) {
   if (m.who === 'report') return '<div class="msg rep"><dl class="report">' + (m.works ? '<dt>Works now</dt><dd>' + esc(m.works) + '</dd>' : '') +
     (m.left ? '<dt>What’s left</dt><dd>' + esc(m.left) + '</dd>' : '') + (m.needs ? '<dt>Needs you</dt><dd>' + esc(m.needs) + '</dd>' : '') + '</dl></div>';
   if (m.who === 'typing') return '<div class="msg tools"><span class="pulse" aria-hidden="true"></span>The agent is working</div>';
-  return '<div class="msg agent"><p>' + esc(m.text) + '</p></div>';
+  return '<div class="msg agent"><p>' + agentText(m.text) + '</p></div>';
 }
 function sessionBody(key) {
   var i = findItem(key), s = sessionOf(key);
