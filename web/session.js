@@ -99,3 +99,28 @@ function briefSheet(kind, arg) {
     '<div class="composer tall"><label class="sr" for="brief">Brief</label><textarea id="brief" rows="5" placeholder="What should the agent do?">' + esc(brief) + '</textarea></div>' +
     '<button type="button" class="btn-primary" data-act="startwork" data-arg="' + kind + '|' + arg + '">Start a session</button>', kind === 'fix' ? 'Fix it' : 'New work', 'brief');
 }
+
+// Start a session: Fix it and New work post the brief; the server starts a real Claude Code session in the project's folder.
+// On success the page goes back to where Ben was, and the board loads again soon so the new session shows on Work.
+function startWork(arg, el) {
+  var p = arg.split('|'), kind = p[0], key = p.slice(1).join('|'), ta = $('brief'), text = ta ? ta.value.trim() : '';
+  if (!text) { if (ta) ta.focus(); return; }
+  busy(el, true, 'Starting…');
+  postAct('start', { kind: kind, arg: key, brief: text }).then(function (r) {
+    if (stack.length && stack[stack.length - 1].route === 'brief') popPage();
+    toast('Session started in ' + r.app); loadSoon();
+  }, function (err) { busy(el, false); toast('Couldn’t start the session: ' + err.message); });
+}
+// Archive a done session: Billboard records it and it leaves the board. The Claude app keeps it.
+function archiveSession(id, el) {
+  busy(el, true);
+  postAct('archive', { id: id }).then(function () {
+    var k = S.sessions.findIndex(function (x) { return x.id === id; }), s = S.sessions[k];
+    if (k >= 0) S.sessions.splice(k, 1);
+    if (stack.length && stack[stack.length - 1].route === 'session-' + id) popPage(); else refresh();
+    toast('Archived from Billboard', function () {
+      postAct('archive', { id: id, undo: true }).then(function () { if (s && k >= 0) S.sessions.splice(k, 0, s); refresh(); loadSoon(); },
+        function (err) { toast('Couldn’t undo: ' + err.message); });
+    });
+  }, function (err) { busy(el, false); toast('Couldn’t archive: ' + err.message); });
+}

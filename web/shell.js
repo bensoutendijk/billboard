@@ -57,7 +57,14 @@ function factUrl(app, label) {
   if (/ Mocks$/.test(label)) return mockOf(app).url;
   return null;
 }
-function notWired() { toast('Not wired up yet'); }
+// Sending into a running session isn't built: claude -p --cloud delivers it as another session's message, not Ben's.
+function notSending() { toast('Sending into a session isn’t wired up yet. Reply in the Claude app.'); }
+// A button that acts shows it's busy until the server answers.
+function busy(el, on, label) {
+  if (!el) return;
+  if (on) { el.dataset.label = el.innerHTML; el.disabled = true; if (label) el.textContent = label; }
+  else { el.disabled = false; if (el.dataset.label) el.innerHTML = el.dataset.label; }
+}
 
 var TABS = [['today', 'Today'], ['work', 'Work'], ['projects', 'Projects'], ['agentos', 'Agent OS']];
 var ICONS = {
@@ -202,21 +209,21 @@ var ACT = {
   project: function (key) { projectPage(key); },
   appday: function (arg) { appDay(arg); },
   pick: function (a) { pickOpt(a); },
-  sendanswer: function () { notWired(); },
+  sendanswer: function () { notSending(); },
   session: function (k) { openSession(k); },
-  reply: function () { notWired(); },
-  buildit: function () { notWired(); },
+  reply: function () { notSending(); },
+  buildit: function () { notSending(); },
   off: function (id) { somethingOff(id); },
   fix: function (id) { briefSheet('fix', id); },
   newwork: function (k) { briefSheet('new', k); },
-  startwork: function () { notWired(); },
-  archive: function () { notWired(); },
+  startwork: function (a, el) { startWork(a, el); },
+  archive: function (id, el) { archiveSession(id, el); },
   aos: function (a) { aosOpen(a); },
   aosbrief: function (a) { aosBrief(a); },
-  aosstart: function () { notWired(); },
+  aosstart: function (a, el) { aosStart(a, el); },
+  runeval: function (a, el) { runEval(a, el); },
   wfilter: function (f) { WORK_FILTER = f; render(); },
-  clear: function () { notWired(); },
-  nowired: function () { notWired(); }
+  clear: function (a, el) { clearAsk(a, el); }
 };
 document.addEventListener('click', function (e) {
   var el = e.target.closest('[data-act]');
@@ -237,6 +244,12 @@ function refreshAll() {
   Object.keys(STACKS).forEach(function (t) { if (t !== TAB) STACKS[t].forEach(function (e) { if (e.redo) e.html = e.redo(); }); });
   render();
   if (!stack.length) window.scrollTo(0, y);
+}
+// After an action the board loads again sooner, so a new session shows on Work within seconds.
+var soonTimers = [];
+function loadSoon() {
+  soonTimers.forEach(clearTimeout);
+  soonTimers = [1500, 6000, 15000, 30000].map(function (ms) { return setTimeout(load, ms); });
 }
 function load() {
   if (LOADING || drag) return;

@@ -8,6 +8,7 @@ import { getSessions, getThreads } from './sources/sessions.mjs';
 import { getApps, getDays14, getDayPrs } from './sources/projects.mjs';
 import { getAos, getPartInfo, getVersions } from './sources/agentos.mjs';
 import { markSeen } from './seen.mjs';
+import { ROUTES as ACT } from './act.mjs';
 
 const PORT = Number(process.env.PORT || 4710);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -41,7 +42,8 @@ const API = {
 
 // POST routes: a small JSON body in, JSON out.
 const POST = {
-  '/api/seen': async (body) => markSeen(body && body.id)
+  '/api/seen': async (body) => markSeen(body && body.id),
+  ...ACT
 };
 function readBody(req) {
   return new Promise((resolve, reject) => {

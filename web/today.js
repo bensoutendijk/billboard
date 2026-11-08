@@ -89,3 +89,18 @@ function wireCards() {
     for (var d = 0; d < dots.length; d++) dots[d].className = d === k ? 'on' : '';
   }, { passive: true });
 }
+
+// It works / Done on a Ready-for-you ask: recorded on boris, so the ask clears for good and the item is live and checked. Undo removes the record.
+function clearAsk(arg, el) {
+  var p = arg.split('|'), id = p[0], label = p[1], i = findItem(id);
+  if (!i || !i.ask) return;
+  busy(el, true);
+  postAct('clear', { id: id, text: i.ask.text, label: label }).then(function () {
+    var was = { who: i.who, step: i.step, reason: i.reason, checked: i.checked, ask: i.ask };
+    i.who = 'live'; i.step = i.steps.length - 1; i.checked = true; i.unseen = false; i.reason = label === 'Done' ? 'You marked it done just now.' : 'You marked it working just now.'; delete i.ask;
+    refresh();
+    toast(label === 'Works' ? 'Marked as working' : 'Marked done', function () {
+      postAct('clear', { id: id, undo: true }).then(function () { Object.assign(i, was); refresh(); loadSoon(); }, function (err) { toast('Couldn’t undo: ' + err.message); });
+    });
+  }, function (err) { busy(el, false); toast('Couldn’t mark it: ' + err.message); });
+}
