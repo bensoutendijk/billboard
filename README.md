@@ -8,8 +8,10 @@ The design is the "Billboard Mocks" artifact (https://claude.ai/artifact/UbyQP4g
 Agent OS's connect guard, which passes only 22, 80, 443, 3000 and 6006 (agent-os ADR 0008), so the tailnet can't reach 4710 yet
 (`docs/DEPLOY.md`). Then add it to the iPhone Home Screen from Safari's Share menu.
 
-The app shell is built: the four tabs and every pushed page, ported from the mock, reading the mock's example data from the
-server's API. The sources in `server/sources/` don't read boris yet; each is replaced on its own (`server/CONTRACT.md`).
+The four tabs and every pushed page are built, ported from the mock, reading boris through the server's API (`server/CONTRACT.md`).
+It acts: Fix it, New work and every Agent OS change start a real Claude Code session on boris (it shows in the Claude app too), Run it and
+Run all start an agent-os session that runs the evals, It works / Done clear an ask for good, and Archive takes a done session off the board.
+Sending into a running session (Send, Reply, Build it) isn't built: the only way in, `claude -p --cloud`, arrives as another session's message.
 
 ## Notification requirements (draft, from Flighty's alerts)
 1. Warn early, from upstream signals: a failing deploy, red CI or a stuck session before Ben would notice it himself.

@@ -118,7 +118,7 @@ function evalPage(k) {
   return head('Eval', k, 'g-mea', 'E') + '<div class="chartcard">' + evBars(k) + '</div>' +
     (info ? sec('Runs') + kv([['Runs', String(info.runs)], ['Last run', info.date || '—'], ['Last run without', info.baselineDate || 'none'], ['Judge', info.judgeModel || '—'], ['Cost of the last run', money(info.costUsd)]]) : '') +
     sec('Tests') + (tests.length ? '<ul class="list">' + tests.map(function (a) { var r = a.indexOf('rule:') === 0 ? rule(a.slice(5)) : null; return '<li>' + go(a, tile(r ? 'g-ins' : 'g-cap', r ? 'R' : 'S') + '<span class="rbody"><span class="rtitle">' + esc(r ? r.name : a.slice(6)) + '</span></span>') + '</li>'; }).join('') + '</ul>' : '<p class="fine pad2">No rule or skill names this eval.</p>') +
-    '<div class="acts"><button type="button" class="btn-plain" data-act="nowired">Run it' + (cost ? ' · ' + cost : '') + '</button></div>';
+    '<div class="acts"><button type="button" class="btn-plain" data-act="runeval" data-arg="' + esc(k) + '">Run it' + (cost ? ' · ' + cost : '') + '</button></div>';
 }
 function versionPage(i) {
   var v = VERSIONS[i], prev = VERSIONS[i + 1]; if (!v) return gone('This version');
@@ -173,7 +173,7 @@ function listPage(kind) {
     var ks = Object.keys(AOS.evals), has = function (e) { return e[0] != null && e[1] != null; },
       grp = [['Worse with the rules', function (e) { return has(e) && e[0] < e[1]; }], ['Same either way', function (e) { return has(e) && e[0] === e[1]; }], ['Better with the rules', function (e) { return has(e) && e[0] > e[1]; }], ['No run without the rules', function (e) { return !has(e); }]];
     html = grp.map(function (g) { var list = ks.filter(function (k) { return g[1](AOS.evals[k]); }); return list.length ? sec(g[0] + ' · ' + list.length) + '<div class="chartcard">' + list.map(function (k) { return '<button type="button" class="evbtn" data-act="aos" data-arg="eval:' + k + '">' + evBars(k) + '</button>'; }).join('') + '</div>' : ''; }).join('') +
-      (ks.length ? '<div class="acts"><button type="button" class="btn-plain" data-act="nowired">Run all ' + ks.length + (evalCost(ks) ? ' · ' + evalCost(ks) : '') + '</button></div>' : '<p class="empty">No evals yet.</p>');
+      (ks.length ? '<div class="acts"><button type="button" class="btn-plain" data-act="runeval" data-arg="*">Run all ' + ks.length + (evalCost(ks) ? ' · ' + evalCost(ks) : '') + '</button></div>' : '<p class="empty">No evals yet.</p>');
   }
   if (kind === 'perms') html = '<ul class="list"><li>' + go('allowed', '<span class="rbody"><span class="rtitle">Allowed</span></span><span class="kvv">' + AOS.permissions.allow + '</span>', 'noicon three') + '</li>' +
     '<li>' + go('denied', '<span class="rbody"><span class="rtitle">Denied</span></span><span class="kvv">' + AOS.permissions.deny + '</span>', 'noicon three') + '</li></ul>' +
@@ -199,13 +199,30 @@ function listPage(kind) {
 
 // Changes go through an agent-os session with a brief, never by hand.
 function aosBrief(arg) {
-  var p = arg.split(':'), k = p[0], brief = '', title = 'Change with an agent';
-  if (k === 'rule') { var r = rule(p[1]) || { name: p[1], text: '' }; brief = 'Rule “' + r.name + '”: ' + r.text + '\n\nWhat I want changed: '; }
-  if (k === 'skill') brief = 'Skill “' + p[1] + '”.\n\nWhat I want changed: ';
-  if (k === 'neweval') { var r2 = rule(p[1]) || { name: p[1] }; title = 'Write an eval'; brief = 'Write an eval case for the rule “' + r2.name + '”: one that fails without it.'; }
-  if (k === 'allow') { title = 'Allow a command'; brief = 'Allow this in the permissions: ' + p.slice(1).join(':'); }
-  if (k === 'removeps') { title = 'Remove PowerShell rules'; var ps = AOS.permissions.groups.filter(function (g) { return g[0] === 'PowerShell commands'; })[0]; brief = 'Remove the ' + (ps ? ps[1] + ' ' : '') + 'PowerShell allow rules; boris never runs PowerShell.'; }
+  var p = arg.split(':'), k = p[0], brief = '', title = 'Change with an agent', name = title;
+  if (k === 'rule') { var r = rule(p[1]) || { name: p[1], text: '' }; name = 'Rule: ' + r.name; brief = 'Rule “' + r.name + '”: ' + r.text + '\n\nWhat I want changed: '; }
+  if (k === 'skill') { name = 'Skill: ' + p[1]; brief = 'Skill “' + p[1] + '”.\n\nWhat I want changed: '; }
+  if (k === 'neweval') { var r2 = rule(p[1]) || { name: p[1] }; title = 'Write an eval'; name = 'Eval for ' + r2.name; brief = 'Write an eval case for the rule “' + r2.name + '”: one that fails without it.'; }
+  if (k === 'allow') { title = 'Allow a command'; name = 'Allow ' + p.slice(1).join(':'); brief = 'Allow this in the permissions: ' + p.slice(1).join(':'); }
+  if (k === 'removeps') { title = name = 'Remove PowerShell rules'; var ps = AOS.permissions.groups.filter(function (g) { return g[0] === 'PowerShell commands'; })[0]; brief = 'Remove the ' + (ps ? ps[1] + ' ' : '') + 'PowerShell allow rules; boris never runs PowerShell.'; }
   openSheet('<div class="sh-item"><p class="rapp">' + appIcon('agent-os') + 'agent-os</p><h2>' + esc(title) + '</h2></div>' +
     '<div class="composer tall"><label class="sr" for="brief">Brief</label><textarea id="brief" rows="6">' + esc(brief) + '</textarea></div>' +
-    '<button type="button" class="btn-primary" data-act="aosstart" data-arg="' + esc(title) + '">Start a session</button>', title, 'brief');
+    '<button type="button" class="btn-primary" data-act="aosstart" data-arg="' + esc(name) + '">Start a session</button>', title, 'brief');
+}
+// Start a session in agent-os with the brief; the page goes back to where Ben was.
+function aosStart(name, el) {
+  var ta = $('brief'), text = ta ? ta.value.trim() : '';
+  if (!text) { if (ta) ta.focus(); return; }
+  busy(el, true, 'Starting…');
+  postAct('start', { kind: 'aos', arg: name, brief: text }).then(function () {
+    if (stack.length && stack[stack.length - 1].route === 'brief') popPage();
+    toast('Session started in agent-os'); loadSoon();
+  }, function (err) { busy(el, false); toast('Couldn’t start the session: ' + err.message); });
+}
+// Run it / Run all: a session in agent-os runs the eval (about $0.50 a case) and reports; Billboard doesn't run it itself.
+function runEval(k, el) {
+  busy(el, true, 'Starting…');
+  postAct('start', { kind: 'eval', arg: k }).then(function () {
+    busy(el, false); toast(k === '*' ? 'A session in agent-os is running every eval' : 'A session in agent-os is running ' + k); loadSoon();
+  }, function (err) { busy(el, false); toast('Couldn’t start the session: ' + err.message); });
 }

@@ -3,7 +3,7 @@
 `server/index.mjs` serves `web/` as static files and this JSON API. Node 24, ESM, standard library only, no build step.
 Port 4710 (`PORT` overrides), bound to all interfaces; the tailnet is the only way in, so there is no sign-in.
 
-Every route is `GET` except `POST /api/seen`, and answers `application/json` and `cache-control: no-cache`. An unknown `/api/` path answers 404
+Every route is `GET` except `POST /api/seen` and the `POST /api/act/*` routes, and answers `application/json` and `cache-control: no-cache`. An unknown `/api/` path answers 404
 `{ "error": "No such route" }`, another method 405, and a source that throws 500 `{ "error": "<message>" }`.
 
 The front end (`web/data.js`) fetches the three board routes at start-up and every 30 s (below) and puts each field into the global the
@@ -60,7 +60,7 @@ What the Today and Work tabs, an item's page and a session's screen read.
 | `short` | string? | with `who: 'stuck'`: the reason in a few words, for a project card |
 | `overnight` | boolean? | it happened overnight |
 | `unseen` | boolean? | with `who: 'live'`: Ben hasn't opened it yet (it shows under Done) |
-| `checked` | boolean? | Ben marked a live item as working. Nothing records that yet, so `false` for now |
+| `checked` | boolean? | Ben marked its ask as working or done (`POST /api/act/clear`) |
 | `report` | `{ works: string, left: string, needs: string }`? | the agent's last report; empty strings for nothing |
 | `facts` | `[time: string, text: string, link: string][]` | what happened, oldest first; `link` is a label or `''` |
 | `sessionId` | string | the Claude Code session id behind it, or `''`; `/api/today-work` fills `Session.item` from it |
@@ -79,6 +79,9 @@ working now or ended its turn on a question or ask (id = the session id). A mock
   workflow name. The usual time is the median of that workflow's recent successful runs.
 - A question's parts come from the numbered options in the agent's last message, the agent's pick marked "my pick" (else the
   first). A numbered heading with lettered options under it and no question mark counts as a question too. A yes-or-no question gets `['Yes', 'No']`; an open one (which, what, this or that) gets `opts: []`: Ben replies in words.
+
+An item whose ask (not a mock ask) Ben cleared with It works or Done, while its ask text is still the one he cleared, is
+`who: 'live'` at the track's last step with `checked: true`, its `ask` dropped, a fact "You marked it working/done", and never `unseen`.
 
 **Part**: `{ q: string, opts: string[], pick: number }`; `pick` is the agent's pick, an index into `opts`.
 
@@ -99,6 +102,8 @@ working now or ended its turn on a question or ask (id = the session id). A mock
 | `item` | string | the item it works on, or `''` |
 | `unseen` | boolean? | with `state: 'done'`: Ben hasn't opened it since its turn ended (`isSeen` in `server/seen.mjs`); Done lists it only when it has no item |
 | `url` | string \| null | the session in the Claude app (`https://claude.ai/code/session_…`), `null` when it has no app session |
+
+A session Ben archived from Billboard (`POST /api/act/archive`) is left out of `sessions`.
 
 Where sessions come from (`server/sources/sessions.mjs`): `claude agents --json` and `~/.claude/sessions/<pid>.json` for
 live sessions, and the main-session transcripts in `~/.claude/projects/-home-ben-projects*/<sessionId>.jsonl` changed since
@@ -126,6 +131,38 @@ Body `{ id: string }`: an item's or a session's id. The page posts it when it op
 Answers `{ id, seen: "<ISO time>" }`, or 400 `{ error }`. `server/seen.mjs` keeps it in `~/.local/state/billboard/seen.json`
 (`BILLBOARD_STATE` overrides the folder); its `isSeen(id, doneAt)` is how a source sets `unseen`. Anything finished before
 that file was first made counts as seen. `Now.lastLooked` is the last time Ben opened something before this visit, or `''`.
+
+## POST /api/act/start
+Starts a Claude Code session on boris the way the incidents service does (agent-os `bin/incidents.mjs`):
+`claude --bg --remote-control <name> -n <name> --permission-mode auto "<prompt>"`, run in the project's folder under `~/projects`
+(`BILLBOARD_PROJECTS` overrides; agent-os is `AGENT_OS_DIR`). It shows in the Claude app and on Work within about 15 s (the sources
+refresh 3, 10 and 25 s after a start; the page loads again 1.5, 6, 15 and 30 s after any action). Takes about 4 s.
+Body `{ kind, arg, brief }`:
+- `fix`: `arg` an item id; folder the item's app; name `Fix: <title>`; prompt the brief, then the PR's URL, the deploy run, why it's stuck,
+  what happened (its facts) and its last session.
+- `new`: `arg` a project key; name the brief's first words; prompt the brief, then the repo, its mock (`Project.mock`) and its open items.
+- `aos`: `arg` the session's name (`Rule: <name>`, `Skill: <id>`, `Eval for <rule>`, `Allow <command>`, `Remove PowerShell rules`); folder
+  agent-os; prompt the brief and that every change is a PR that runs the evals.
+- `eval`: `arg` a `lite/evals/` case name, or `*` for all; no brief. Folder agent-os; the prompt runs
+  `node bin/agent-os.mjs eval lite --allow-tools Bash Read Write Edit Glob Grep [--case <name>]` from its own worktree, commits
+  `evals/history.jsonl` in a PR and reports the scores. Billboard never runs an eval itself.
+
+Answers `{ ok: true, app, name, job, sessionId, url }` (`sessionId` `''` and `url` `null` when the job's state file isn't written yet),
+or 400 `{ error }` (empty brief, no such item, project or case, or `claude` didn't start one; its words are in the error).
+
+## POST /api/act/clear
+Body `{ id, text, label: 'Works' | 'Done' }` (the item id and its ask's text): records that Ben cleared the ask; `{ id, undo: true }` removes the
+record (Undo). Answers `{ id, cleared: "<ISO time>" | null }`.
+
+## POST /api/act/archive
+Body `{ id }` (a session id): records it as archived, so it leaves Billboard; `{ id, undo: true }` brings it back. It is not archived in the Claude
+app. Answers `{ id, archived: "<ISO time>" | null }`.
+
+Both records live in `server/acted.mjs`'s `~/.local/state/billboard/acted.json` (`BILLBOARD_STATE` overrides the folder).
+
+Sending into a running session (Send, Reply, Build it, Something's off) is not built: `claude -p "<text>" --cloud <session id>` delivers the
+text, but the session receives it as a message from another Claude session (`origin: peer`, "Another Claude session sent a message"), not as
+Ben's. Those buttons say so.
 
 ## GET /api/projects
 ```
@@ -185,6 +222,10 @@ last build. `AGENT_OS_DIR`, `CLAUDE_DIR` and `PROMETHEUS_URL` override where it 
 `web/data.js` loads the three routes on their own at start-up and again every 30 s (and when the page comes back into view),
 keeping the open page and its scroll. A route that fails keeps what it loaded before (the tab says so in a quiet line); one
 that never loaded reads as empty. The page tolerates missing optional fields and empty lists everywhere.
+
+Acting: Start a session (Fix it, New work, every Agent OS brief) posts `/api/act/start` and goes back to where Ben was; Run it and Run all
+post it with `kind: 'eval'` and stay. It works / Done post `/api/act/clear` and show Undo; Archive posts `/api/act/archive` and shows Undo.
+A button shows it's busy until the server answers, and a failure is a toast with the server's words.
 
 Opening an item's page or a session's screen posts `POST /api/seen` with `{ "id": "<item or session id>" }` (best effort) and
 forgets it locally at once, so it leaves Done even before the next load.

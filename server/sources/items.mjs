@@ -11,6 +11,7 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import * as sessionsModule from './sessions.mjs';
 import { isSeen, lastLooked } from '../seen.mjs';
+import { clearedAsk } from '../acted.mjs';
 
 const BUILD = ['Build', 'PR', 'Live', 'Checked'];
 const FROM_MOCK = ['In the mock', 'Build', 'PR', 'Live'];
@@ -629,12 +630,25 @@ async function current() {
 }
 
 // isSeen is read at request time, so an item opened a moment ago leaves Done at once.
+// An ask Ben cleared with It works or Done (server/acted.mjs) leaves for good: the item is live and checked.
 export async function getItems() {
+  const now = Date.now();
   return structuredClone(await current()).map((i) => {
+    const c = i.who === 'ben' && i.ask && i.ask.kind !== 'mock' ? clearedAsk(i.id, i.ask.text) : null;
+    if (c) {
+      const at = ms(c.at);
+      i.who = 'live'; i.step = i.steps.length - 1; i.checked = true; i.unseen = false;
+      i.reason = `You marked it ${c.label === 'Done' ? 'done' : 'working'} ${when(at, now)}.`;
+      i.facts.push([when(at, now), c.label === 'Done' ? 'You marked it done' : 'You marked it working', '']);
+      delete i.ask;
+      if (i.report && i.report.needs) i.report.needs = '';
+    }
     if (i.who === 'live' && i.unseen) i.unseen = !isSeen(i.id);
     return i;
   });
 }
+// server/act.mjs calls this after starting a session, so its item shows sooner than the minute's refresh.
+export function refreshItems() { return refresh(); }
 export async function getTracks() { return { build: [...BUILD], fromMock: [...FROM_MOCK] }; }
 export async function getNow() {
   const now = Date.now(), ll = lastLooked(now);

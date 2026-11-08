@@ -54,3 +54,9 @@ function markSeen(id) {
     fetch('api/seen', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id }) }).catch(function () { /* offline */ });
   } catch (err) { /* no fetch */ }
 }
+// Acting (POST /api/act/*): resolves with the server's answer, or rejects with its error in words.
+function postAct(path, body) {
+  return fetch('api/act/' + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) })
+    .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || 'Billboard answered ' + r.status); return d; }); },
+      function () { throw new Error('Couldn’t reach Billboard on boris'); });
+}

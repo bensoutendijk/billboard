@@ -8,6 +8,7 @@ import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { isSeen } from '../seen.mjs';
+import { isArchived } from '../acted.mjs';
 
 const HOME = homedir();
 const PROJECTS = join(HOME, 'projects');
@@ -540,11 +541,13 @@ refresh();
 // unseen is read at request time from server/seen.mjs, so a session opened a moment ago leaves Done at once.
 export async function getSessions() {
   const c = await current();
-  return structuredClone(c.sessions).map((s) => {
+  return structuredClone(c.sessions).filter((s) => !isArchived(s.id)).map((s) => {
     if (s.state === 'done') s.unseen = !isSeen(s.id, c.doneAt?.get(s.id));
     return s;
   });
 }
+// server/act.mjs calls this after starting a session.
+export function refreshSessions() { return refresh(); }
 export async function getThreads() { return structuredClone((await current()).threads); }
 // For items.mjs: per session id, what it opened and merged, its report and question, its cwd and when its turn ended.
 export async function getSessionFacts() { return structuredClone((await current()).facts); }
