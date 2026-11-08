@@ -16,7 +16,7 @@ One module per data kind, so each can be replaced on its own. Each export is `as
 | Module | Exports | Feeds |
 |---|---|---|
 | `server/sources/items.mjs` | `getItems()`, `getTracks()`, `getNow()` | `/api/today-work` items, build, fromMock, now |
-| `server/sources/sessions.mjs` | `getSessions()`, `getThreads()` | `/api/today-work` sessions, threads |
+| `server/sources/sessions.mjs` | `getSessions()`, `getThreads()`, `getSessionFacts()` | `/api/today-work` sessions, threads; `getSessionFacts()` is for `items.mjs` to join on (below) |
 | `server/sources/projects.mjs` | `getApps()`, `getDays14()`, `getDayPrs()` | `/api/projects` |
 | `server/sources/agentos.mjs` | `getAos()`, `getPartInfo()`, `getVersions()` | `/api/agentos` |
 
@@ -92,16 +92,32 @@ working now or ended its turn on a question or ask (id = the session id). A mock
 | `doing` | string | what it is doing or where it stopped, in words |
 | `mins` | number? | minutes running (working and job) |
 | `since` | string? | when its turn ended (other states) |
-| `cost` | number | dollars |
+| `cost` | number \| null | dollars; `null` when no cost is on record |
 | `helpers` | number? | subagents running |
 | `branch` | string? | |
 | `item` | string | the item it works on, or `''` |
-| `unseen` | boolean? | with `state: 'done'`: Ben hasn't opened it yet |
+| `unseen` | boolean? | with `state: 'done'`: Ben hasn't opened it yet (not known yet for real sessions, so left out) |
+| `url` | string \| null | the session in the Claude app (`https://claude.ai/code/session_…`), `null` when it has no app session |
+
+Where sessions come from (`server/sources/sessions.mjs`): `claude agents --json` and `~/.claude/sessions/<pid>.json` for
+live sessions, and the main-session transcripts in `~/.claude/projects/-home-ben-projects*/<sessionId>.jsonl` changed since
+2026-11-02 (read incrementally, refreshed every 10 s). A session's `app` is the `~/projects/<name>` under its cwd (for a
+session in `~/projects` itself, the project its commands touched most). `state`: `working` while its process is busy (`job`
+when the running command is `gh pr checks --watch`, `gh run watch`, `eas build` or `eas submit`); a live session whose turn
+ended on a numbered question or a "Needs Ben" section is `ben`; one with a PR still open on GitHub, a "What's left", or a
+branch with no PR is `paused`; the rest, and every ended session, `done`. `cost` comes from Prometheus
+(`claude_code_cost_usage_USD_total` by `session_id`), else the transcript's last cost record. Merged PRs come from the
+transcript's `gh pr merge` calls, the labels service's `agent_os_session_pr`, and `gh pr view` for PRs it opened.
+
+**SessionFacts** (`getSessionFacts()`, keyed by session id; not sent to the page): `{ id, app, cwd, live, status, startedAt,
+lastAt, turnEndedAt, toolCalls, prsOpened: {n, url, repo}[], prsMerged: number[], report: {works, left, needs} | null,
+question: {asked, parts: Part[]} | null, lastText }`. Times are epoch ms.
 
 **Message** (in `threads`, keyed by item id or session id; ids with no thread get one built in the browser):
 - `{ who: 'ben', at?: string, text: string, from?: string }`: Ben's message; `from` names where it was started (a mock row)
 - `{ who: 'agent', text: string }`: the agent's words
 - `{ who: 'tools', n: number, mins: number, live?: boolean }`: tool calls folded into one line
+- Real threads hold the latest 40 messages (plus Ben's opening message), each agent message cut at 1500 characters.
 - `{ who: 'report', works: string, left: string, needs: string }`: its report as a card
 
 ## POST /api/seen
@@ -118,9 +134,12 @@ that file was first made counts as seen. `Now.lastLooked` is the last time Ben o
   dayPrs: { "<appKey>:<dayIndex>": [prNumber: number, title: string][] }   // [DAY_PRS] PRs merged that day
 }
 ```
-**Project**: `{ key, name, color: '#rrggbb', lastLive: string, designed: number, week: number, merges: number[7], m14: number[14], c14: number[14] }`:
-`designed` is mock rows not built yet, `week` the cost this week in dollars, `merges` PRs merged on each of the last 7 days,
-`m14` and `c14` merges and dollars per day on `days14`.
+**Project**: `{ key, name, color: '#rrggbb', lastLive: string, designed: number|null, week: number, merges: number[7], m14: number[14], c14: number[14] }`:
+`designed` is mock rows not built yet (`null`: unknown, since the server can't read the mock artifact), `week` the cost of the last 7 days in whole dollars, `merges` PRs merged on each of the last 7 days,
+`m14` and `c14` merges and whole dollars per day on `days14` (Chicago days). Merges come from `gh pr list`, cost from
+Prometheus (`claude_code_cost_usage_USD_total`) joined to a project by the folder of the session's transcript, or by the
+repos of the PRs it merged; `lastLive` is the latest merge whose deploy run passed (or the latest merge), with its day.
+`server/sources/projects.mjs` recomputes all of it every 5 minutes.
 
 ## GET /api/agentos
 ```
@@ -131,14 +150,32 @@ that file was first made counts as seen. `Now.lastLooked` is the last time Ben o
 }
 ```
 **Aos**:
-- `version`: string, the current rules version (`'2026-11-07 8f32cec'`)
-- `rules`: `{ id, name, step, text, evals: string[] }[]`; `evals` are eval names
-- `evals`: `{ [evalName]: [withTheRules: number, without: number] }` percent scores
-- `skills`: `{ id, step, kb: number, runs: number, text, evals: string[], personal?: true }[]`
-- `permissions`: `{ allow: number, deny: number, groups: [name, count, sample][], denied: [rule, meaning][], blocked: [when, appKey, what, why][] }`
-- `memories`: `[project, slug, title, type: 'feedback'|'project'|'reference'|'user', line, links: string[]][]` in each project's MEMORY.md order; `links` are slugs, a missing one is shown as missing
+- `version`: string, the current rules version: the latest commit touching `lite/AGENTS.md`, `'<date> <short sha>'` (`'2026-11-07 544b891'`)
+- `rules`: `{ id, name, step, text, evals: string[], history: [when, what][] }[]`: one per bullet or paragraph of `lite/AGENTS.md`, in order;
+  `name` is its first words, `id` a slug of the name, `step` is `''` (no source), `evals` are eval names, `history` the commits that changed it, newest first
+- `evals`: `{ [evalName]: [withTheRules: number|null, without: number|null] }` percent scores: the latest run of each `lite/evals/*` case in
+  `evals/history.jsonl` (the rules' own runs); `without` is that run's baseline, else the latest baseline the case has; `null` for none
+- `evalInfo`: `{ [evalName]: { runs, costUsd, judgeModel, date, baselineDate: string|null } | null }`: that latest run
+- `skills`: `{ id, step, kb: number, runs: number, text, evals: string[], history: [when, what][], personal?: true }[]`: every `SKILL.md` under
+  `lite/skills/` and `boris/skills/` (`personal`); `text` is its description, `runs` its loads in the last 4 weeks, `step` is `''`
+- `permissions`: `{ allow: number, deny: number, groups: [name, count, sample][], lists: { [groupName]: string[] }, denied: [rule, meaning][], blocked: [when, appKey, what, why][] }`:
+  from `~/.claude/settings.json`; `lists` holds each group's full rules; `blocked` is the tool calls permissions denied in the last 7 days' transcripts, newest first
+- `memories`: `[project, slug, title, type: 'feedback'|'project'|'reference'|'user', line, links: string[]][]` in each project's MEMORY.md order; `title` and
+  `line` are the MEMORY.md entry, `type` and `links` (`[[name]]`) come from the memory's file; a missing link is shown as missing
+
+How a case's rules and skills are found: the case's own `rules:`/`skills:` lists in `case.yaml` if it has them; otherwise a skill whose name is
+a word of the case's name or tags, and the rules whose text uses the case's words most.
 
 **PartInfo**: `{ loads: number[4], used: [when, appKey, what, outcome][], loaded: [label, value][], contents: string[] }`;
-`loads` per week, oldest first.
+`loads` per week, oldest first (the last 7 days last), from Prometheus's `agent_os_session_skill_runs` placed by each session's last event
+(the transcripts' Skill calls if Prometheus is down); `used` the sessions that loaded it, newest first (title from the transcript; outcome
+from the PRs it merged); `loaded` its cost a session from Claude Code's `skill_name` cost label and its sessions' failed tool calls;
+`contents` the SKILL.md's H2 headings.
 
-**Version**: `{ v, note, since, sessions: number, per: number, evals: number|null, pick: string, failed: string, changes: string[] }`
+**Version**: `{ v, note, since, sessions: number, per: number|null, evals: number|null, pick: string, failed: string, changes: string[] }`:
+one per commit touching `lite/AGENTS.md`, newest first. `sessions`, `per` (average cost a session) and `failed` come from Prometheus by the
+labels service's `agent_os_version` (a skill or CLAUDE.md commit counts toward the rules version it ran under); `evals` is the average score
+of the rules' eval runs while that version was in force; `pick` is `'—'` (no source yet); `changes` the commits under `lite/` in that version.
+
+`server/sources/agentos.mjs` builds all of this in the background (about 2 seconds) and refreshes it every 5 minutes; a request gets the
+last build. `AGENT_OS_DIR`, `CLAUDE_DIR` and `PROMETHEUS_URL` override where it reads.

@@ -70,7 +70,8 @@ function itemBody(id) {
 function sessionOf(key) { return S.sessions.filter(function (s) { return s.id === key || (key && s.item === key); })[0]; }
 function sessionRow(i) {
   var s = sessionOf(i.id), on = s && (s.state === 'working' || s.state === 'job');
-  var meta = s ? (on ? [s.mins + ' min', '$' + s.cost.toFixed(2)].concat(s.helpers ? [plural(s.helpers, 'helper', 'helpers')] : [], s.branch ? [s.branch] : []) : ['Turn ended ' + s.since, '$' + s.cost.toFixed(2)]) : ['Ended'];
+  var cost = s && s.cost != null ? '$' + s.cost.toFixed(2) : 'Cost not on record';
+  var meta = s ? (on ? [s.mins + ' min', cost].concat(s.helpers ? [plural(s.helpers, 'helper', 'helpers')] : [], s.branch ? [s.branch] : []) : ['Turn ended ' + s.since, cost]) : ['Ended'];
   return '<h2 class="sec">Session</h2><ul class="list"><li><button type="button" class="row noicon" data-act="session" data-arg="' + i.id + '"><span class="rbody">' +
     '<span class="rtitle">' + (on ? '<span class="pulse live" aria-hidden="true"></span>' : '') + esc(s ? s.title : i.session) + '</span>' +
     (s ? '<span class="rline">' + esc(s.doing) + '</span>' : '') + '<span class="rquiet">' + meta.map(esc).join(' · ') + '</span></span>' + CHEV + '</button></li></ul>';
