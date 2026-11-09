@@ -24,6 +24,10 @@ const REPORT = {
   }
 };
 const MAIN = 'Main session only: never call this from a helper agent.';
+const ASK_FIRST = "Two steps, in order. First write the whole ask as visible text in your message to Ben (each question with its numbered options, or the action); Ben can't see your thinking or this call, and the chat is where he reads it. Only then call this.";
+// Agents draft an ask in their thinking and go straight to the tool, whatever the description or a rule says (Ben, 2026-11-09:
+// the chat must carry the ask while Billboard is a work in progress). They do reliably act on what the tool returns.
+const ASK_RECORDED = "Recorded on Billboard, but Ben can't see this card or your thinking in the chat. Unless the whole ask is already in a message above this call, write it now as chat text (each question with its numbered options and your pick first, or the action), then end your turn.";
 const CLOSE = 'Call exactly one of ask, waiting or done as the last thing in every turn, and still say the same thing in your reply to Ben.';
 const TOOLS = [
   {
@@ -39,7 +43,7 @@ const TOOLS = [
   },
   {
     name: 'ask',
-    description: `End the turn waiting on Ben: either questions only he can answer, or one thing only he can do. Pass questions or action, never both. ${CLOSE} ${MAIN}`,
+    description: `End the turn waiting on Ben: either questions only he can answer, or one thing only he can do. Pass questions or action, never both. ${ASK_FIRST} Call exactly one of ask, waiting or done as the last thing in every turn. ${MAIN}`,
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -140,6 +144,7 @@ function call(name, args) {
   const session = sessionId();
   if (!session) throw new Error('Could not tell which session this is');
   appendRecord(session, name, fields);
+  if (name === 'ask') return ASK_RECORDED;
   return name === 'working' ? 'Recorded on Billboard.' : 'Recorded on Billboard. You can end your turn.';
 }
 
