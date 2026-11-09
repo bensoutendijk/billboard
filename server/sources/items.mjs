@@ -1,6 +1,6 @@
 // Items: each piece of work with its track, who has it, its question or ask, report and facts (server/CONTRACT.md).
 // An item is a PR in a bensoutendijk repo under ~/projects (open, or merged in the last 14 days), joined to the
-// session that opened or merged it, or a session with no PR that is working or ended its turn on a question or ask.
+// session that opened or merged it, or a session with no PR that is working, ended its turn on a question or ask, or is still open.
 // Sources: gh (PRs, checks, workflow runs), the Claude Code transcripts and live-session files under ~/.claude,
 // Prometheus's agent_os_session_pr (which session merged which PR), and the sessions module for titles and "doing".
 // Who has it and where it is on its track are worked out from facts on every refresh, never stored.
@@ -11,7 +11,7 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import * as sessionsModule from './sessions.mjs';
 import { isSeen, lastLooked } from '../seen.mjs';
-import { clearedAsk } from '../acted.mjs';
+import { clearedAsk, isArchived } from '../acted.mjs';
 
 const BUILD = ['Build', 'PR', 'Live', 'Checked'];
 const FROM_MOCK = ['In the mock', 'Build', 'PR', 'Live'];
@@ -487,7 +487,7 @@ async function build() {
   const out = [];
   for (const it of items) out.push(await prItem(it, { transcripts, live, namedById, finals, latestOf, now }));
 
-  // Sessions with no PR of their own: working now, or ended their turn on a question or ask. Mock asks are their own item.
+  // Sessions with no PR of their own: working now, ended their turn on a question or ask, or still open. Mock asks are their own item.
   for (const s of transcripts.values()) {
     const app = appOfCwd(s.cwd);
     if (!app || s.lastTs < RULES_START || now - s.lastTs > WINDOW) continue;
@@ -495,8 +495,8 @@ async function build() {
     const mockAsk = f?.ask?.kind === 'mock';
     if (hasPr && !mockAsk) continue;
     const busy = status === 'busy';
-    if (!busy && !(f && (f.question.length || f.ask))) continue;
-    out.push(sessionItem(s, app, { busy, alive: !!status, f, namedById, now }));
+    if (!busy && !status && !(f && (f.question.length || f.ask))) continue;
+    out.push(sessionItem(s, app, { busy, status, alive: !!status, f, namedById, now }));
   }
 
   out.sort((a, b) => b._t - a._t);
@@ -584,7 +584,7 @@ async function prItem(it, ctx) {
   return finish(item, facts, now);
 }
 
-function sessionItem(s, app, { busy, alive, f, namedById, now }) {
+function sessionItem(s, app, { busy, status, alive, f, namedById, now }) {
   const named = namedById.get(s.id);
   const question = !busy && f?.question?.length ? f.question : null;
   const ask = !busy && !question && f?.ask ? f.ask : null;
@@ -597,12 +597,13 @@ function sessionItem(s, app, { busy, alive, f, namedById, now }) {
   if (!alive) facts.push([Math.max(s.lastTs, f?.at || 0), question ? 'Session ended with the question open' : 'Session ended', '']);
   const title = sessionTitle(s, named) || 'A session on boris';
   const item = {
-    id: s.id, app, title, who: busy ? 'agent' : 'ben', steps: mock ? FROM_MOCK : BUILD, step: 0,
+    id: s.id, app, title, who: busy ? 'agent' : question || ask ? 'ben' : 'paused', steps: mock ? FROM_MOCK : BUILD, step: 0,
     session: title, sessionId: s.id, sessionEnded: !alive, menu: null, checked: false
   };
   if (busy) item.reason = named?.doing || 'Its session is working.';
   else if (question) item.question = { asked: when(f.at, now), parts: question };
-  else item.ask = { kind: ask.kind, text: ask.text, liveAt: '' };
+  else if (ask) item.ask = { kind: ask.kind, text: ask.text, liveAt: '' };
+  else item.reason = status === 'idle' ? `Its turn ended ${when(s.lastTs, now)}. The session is still open.` : 'Waiting on you in the Claude app.';
   if (f && !busy) item.report = f.report;
   return finish(item, facts, now);
 }
@@ -640,7 +641,7 @@ async function current() {
 // An ask Ben cleared with It works or Done (server/acted.mjs) leaves for good: the item is live and checked.
 export async function getItems() {
   const now = Date.now();
-  return structuredClone(await current()).map((i) => {
+  return structuredClone(await current()).filter((i) => !(i.who === 'paused' && isArchived(i.sessionId))).map((i) => {
     const c = i.who === 'ben' && i.ask && i.ask.kind !== 'mock' ? clearedAsk(i.id, i.ask.text) : null;
     if (c) {
       const at = ms(c.at);

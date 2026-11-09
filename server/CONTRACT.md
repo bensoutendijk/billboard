@@ -46,7 +46,7 @@ What the Today and Work tabs, an item's page and a session's screen read.
 | `id` | string | stable id, used in routes (`#item-<id>`, `#session-<id>`) |
 | `app` | string | project key, matches `Project.key` |
 | `title` | string | |
-| `who` | `'ben' \| 'agent' \| 'job' \| 'live' \| 'stuck'` | who has it now: a question or ask waits on Ben, an agent is working, an automated job holds it, it is live, or it is stuck |
+| `who` | `'ben' \| 'agent' \| 'job' \| 'live' \| 'stuck' \| 'paused'` | who has it now: a question or ask waits on Ben, an agent is working, an automated job holds it, it is live, it is stuck, or its session is still open with no PR and nothing clearly asked |
 | `job` | string? | with `who: 'job'`: the job's name (`Secret scan`, `Deploying`, `EAS build`, `TestFlight`) |
 | `steps` | string[] | its track: equal to `build` or `fromMock` |
 | `step` | number | index into `steps` where it is |
@@ -68,7 +68,7 @@ What the Today and Work tabs, an item's page and a session's screen read.
 How `items.mjs` works it out (nothing is stored): an item is a PR in a `bensoutendijk` repo under `~/projects`
 (id `<app>-<pr>`; open, or merged in the last 14 days; none from before 2026-11-02), joined to the session that opened
 it (the transcript's `pr-link` records) or merged it (Prometheus `agent_os_session_pr`); or a session with no PR that is
-working now or ended its turn on a question or ask (id = the session id). A mock ask is always its own item on `fromMock`.
+working now, ended its turn on a question or ask, or is still open (id = the session id; `paused` in that last case, until the session ends or Ben archives it). A mock ask is always its own item on `fromMock`.
 - `step`: 0 no PR, 1 PR open, 2 merged and not yet live, 3 live (merged and its deploy passed, or the repo has no deploy workflow).
 - `who`, first match: `stuck` a deploy failed and no session is working; `stuck` the deploy run has been queued over 15 minutes
   (no runner picked it up) and no session is working; `job` a check on the open PR or the deploy is running
@@ -103,7 +103,7 @@ An item whose ask (not a mock ask) Ben cleared with It works or Done, while its 
 | `unseen` | boolean? | with `state: 'done'`: Ben hasn't opened it since its turn ended (`isSeen` in `server/seen.mjs`); Done lists it only when it has no item |
 | `url` | string \| null | the session in the Claude app (`https://claude.ai/code/session_…`), `null` when it has no app session |
 
-A session Ben archived from Billboard (`POST /api/act/archive`) is left out of `sessions`.
+A session Ben archived from Billboard (`POST /api/act/archive`) is left out of `sessions`, and its `paused` item is left out of `items`.
 
 Where sessions come from (`server/sources/sessions.mjs`): `claude agents --json` and `~/.claude/sessions/<pid>.json` for
 live sessions, and the main-session transcripts in `~/.claude/projects/-home-ben-projects*/<sessionId>.jsonl` changed since

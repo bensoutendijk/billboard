@@ -68,7 +68,7 @@ function sessionBody(key) {
     '<div class="thread">' + (t.length ? t.map(bubble).join('') : '<p class="fine">Billboard can’t read this conversation yet.</p>') + '</div>' + q +
     '<div class="composer"><label class="sr" for="reply-' + key + '">Reply</label><textarea id="reply-' + key + '" rows="2" placeholder="Reply to the agent">' + esc(S.draft[key] || '') + '</textarea>' +
     '<button type="button" class="btn-send" data-act="reply" data-arg="' + key + '" aria-label="Send">↑</button></div>' +
-    (s && s.state === 'done' && !i ? '<div class="acts"><button type="button" class="btn-plain" data-act="archive" data-arg="' + s.id + '">Archive</button></div>' : '');
+    (s && (i ? i.who === 'paused' : s.state === 'done') ? '<div class="acts"><button type="button" class="btn-plain" data-act="archive" data-arg="' + s.id + '">Archive</button></div>' : '');
 }
 function openSession(key) {
   var i = findItem(key), s = sessionOf(key); if (s) { s.unseen = false; markSeen(s.id); }
@@ -111,15 +111,17 @@ function startWork(arg, el) {
     toast('Session started in ' + r.app); loadSoon();
   }, function (err) { busy(el, false); toast('Couldn’t start the session: ' + err.message); });
 }
-// Archive a done session: Billboard records it and it leaves the board. The Claude app keeps it.
+// Archive a done or paused session: Billboard records it and it leaves the board. The Claude app keeps it.
 function archiveSession(id, el) {
   busy(el, true);
   postAct('archive', { id: id }).then(function () {
     var k = S.sessions.findIndex(function (x) { return x.id === id; }), s = S.sessions[k];
     if (k >= 0) S.sessions.splice(k, 1);
-    if (stack.length && stack[stack.length - 1].route === 'session-' + id) popPage(); else refresh();
+    var ik = S.items.findIndex(function (x) { return x.sessionId === id && x.who === 'paused'; }), it = S.items[ik];
+    if (ik >= 0) { S.items.splice(ik, 1); popToRoot(); }
+    else if (stack.length && stack[stack.length - 1].route === 'session-' + id) popPage(); else refresh();
     toast('Archived from Billboard', function () {
-      postAct('archive', { id: id, undo: true }).then(function () { if (s && k >= 0) S.sessions.splice(k, 0, s); refresh(); loadSoon(); },
+      postAct('archive', { id: id, undo: true }).then(function () { if (s && k >= 0) S.sessions.splice(k, 0, s); if (it) S.items.splice(ik, 0, it); refresh(); loadSoon(); },
         function (err) { toast('Couldn’t undo: ' + err.message); });
     });
   }, function (err) { busy(el, false); toast('Couldn’t archive: ' + err.message); });
