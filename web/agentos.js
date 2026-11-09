@@ -212,6 +212,11 @@ function aosBrief(arg) {
     '<button type="button" class="btn-primary" data-act="aosstart" data-arg="' + esc(name) + '">Start a session</button>', title, 'brief');
   if (now) $('brief').focus();
 }
+// On the iPhone a link opens in a browser over Billboard, which hands it to the Claude app and stays behind, white. Close it again.
+function openClaude(url) {
+  var w = window.open(url, '_blank');
+  if (w) setTimeout(function () { try { w.close(); } catch (err) { /* already gone */ } }, 2500);
+}
 // Start a session in agent-os and go to it in the Claude app. iOS can refuse that jump this long after the tap,
 // so the page stays as Session started, with a link Ben can tap.
 function aosStart(name, el) {
@@ -222,10 +227,10 @@ function aosStart(name, el) {
   postAct('start', { kind: 'aos', arg: name, brief: text }).then(function (r) {
     var url = r.url || 'https://claude.ai/code';
     loadSoon();
-    window.open(url, '_blank', 'noopener');
+    openClaude(url);
     if (!stack.length || topPage() !== page) { toast('Session started in agent-os'); return; }
     var html = '<div class="sh-item"><p class="rapp">' + appIcon('agent-os') + 'agent-os</p><h2>Session started</h2></div>' +
-      outLink(url, 'btn-primary', 'Open in the Claude app');
+      '<button type="button" class="btn-primary" data-act="aosopen" data-arg="' + esc(url) + '">Open in the Claude app</button>';
     stack[stack.length - 1].html = html; page.querySelector('.pg-body').innerHTML = html;
   }, function (err) { busy(el, false); toast('Couldn’t start the session: ' + err.message); });
 }

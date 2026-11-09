@@ -221,6 +221,7 @@ var ACT = {
   aos: function (a) { aosOpen(a); },
   aosbrief: function (a) { aosBrief(a); },
   aosstart: function (a, el) { aosStart(a, el); },
+  aosopen: function (u) { openClaude(u); },
   runeval: function (a, el) { runEval(a, el); },
   wfilter: function (f) { WORK_FILTER = f; render(); },
   clear: function (a, el) { clearAsk(a, el); }
