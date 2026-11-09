@@ -129,7 +129,8 @@ that file was first made counts as seen. `Now.lastLooked` is the last time Ben o
 Starts a Claude Code session on boris the way the incidents service does (agent-os `bin/incidents.mjs`):
 `claude --bg --remote-control <name> -n <name> --permission-mode auto "<prompt>"`, run in the project's folder under `~/projects`
 (`BILLBOARD_PROJECTS` overrides; agent-os is `AGENT_OS_DIR`). It shows in the Claude app and on Work within about 15 s (the sources
-refresh 3, 10 and 25 s after a start; the page loads again 1.5, 6, 15 and 30 s after any action). Takes about 4 s.
+refresh 3, 10 and 25 s after a start; the page loads again 1.5, 6, 15 and 30 s after any action). Takes about 4 s, and up to about 10 s more
+if the session's app link is slow to appear.
 Body `{ kind, arg, brief }`:
 - `fix`: `arg` an item id; folder the item's app; name `Fix: <title>`; prompt the brief, then the PR's URL, the deploy run, why it's stuck,
   what happened (its facts) and its last session.
@@ -140,7 +141,7 @@ Body `{ kind, arg, brief }`:
   `node bin/agent-os.mjs eval lite --allow-tools Bash Read Write Edit Glob Grep [--case <name>]` from its own worktree, commits
   `evals/history.jsonl` in a PR and reports the scores. Billboard never runs an eval itself.
 
-Answers `{ ok: true, app, name, job, sessionId, url }` (`sessionId` `''` and `url` `null` when the job's state file isn't written yet),
+Answers `{ ok: true, app, name, job, sessionId, url }` (`sessionId` `''` and `url` `null` when they aren't written to the job's state file in time),
 or 400 `{ error }` (empty brief, no such item, project or case, or `claude` didn't start one; its words are in the error).
 
 ## POST /api/act/clear
@@ -234,7 +235,8 @@ last build. `AGENT_OS_DIR`, `CLAUDE_DIR` and `PROMETHEUS_URL` override where it 
 keeping the open page and its scroll. A route that fails keeps what it loaded before (the tab says so in a quiet line); one
 that never loaded reads as empty. The page tolerates missing optional fields and empty lists everywhere.
 
-Acting: Start a session (Fix it, New work, every Agent OS brief) posts `/api/act/start` and goes back to where Ben was; Run it and Run all
+Acting: Start a session posts `/api/act/start`. Fix it and New work go back to where Ben was; an Agent OS brief tries to open the session in the Claude
+app (iOS may refuse) and its page becomes Session started, with a link to the session (`https://claude.ai/code` when `url` is `null`). Run it and Run all
 post it with `kind: 'eval'` and stay. It works / Done post `/api/act/clear` and show Undo; Archive posts `/api/act/archive` and shows Undo.
 A button shows it's busy until the server answers, and a failure is a toast with the server's words.
 

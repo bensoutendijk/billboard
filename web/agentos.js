@@ -197,24 +197,36 @@ function listPage(kind) {
 }
 
 // Changes go through an agent-os session with a brief, never by hand.
+// A rule or a skill shows what it says now above an empty box; the rest open with their brief written.
+var AOS_NOW = null;
 function aosBrief(arg) {
-  var p = arg.split(':'), k = p[0], brief = '', title = 'Change with an agent', name = title;
-  if (k === 'rule') { var r = rule(p[1]) || { name: p[1], text: '' }; name = 'Rule: ' + r.name; brief = 'Rule “' + r.name + '”: ' + r.text + '\n\nWhat I want changed: '; }
-  if (k === 'skill') { name = 'Skill: ' + p[1]; brief = 'Skill “' + p[1] + '”.\n\nWhat I want changed: '; }
+  var p = arg.split(':'), k = p[0], brief = '', title = 'Change with an agent', name = title, now = null;
+  if (k === 'rule') { var r = rule(p[1]) || { name: p[1], text: '' }; name = 'Rule: ' + r.name; now = { kind: 'Rule', name: r.name, text: r.text }; }
+  if (k === 'skill') { var s = skill(p[1]) || { id: p[1], text: '' }; name = 'Skill: ' + s.id; now = { kind: 'Skill', name: s.id, text: s.text }; }
+  AOS_NOW = now;
   if (k === 'neweval') { var r2 = rule(p[1]) || { name: p[1] }; title = 'Write an eval'; name = 'Eval for ' + r2.name; brief = 'Write an eval case for the rule “' + r2.name + '”: one that fails without it.'; }
   if (k === 'removeps') { title = name = 'Remove PowerShell rules'; var ps = AOS.permissions.groups.filter(function (g) { return g[0] === 'PowerShell commands'; })[0]; brief = 'Remove the ' + (ps ? ps[1] + ' ' : '') + 'PowerShell allow rules; boris never runs PowerShell.'; }
   openSheet('<div class="sh-item"><p class="rapp">' + appIcon('agent-os') + 'agent-os</p><h2>' + esc(title) + '</h2></div>' +
-    '<div class="composer tall"><label class="sr" for="brief">Brief</label><textarea id="brief" rows="6">' + esc(brief) + '</textarea></div>' +
+    (now ? '<div class="askcard"><span class="rtitle">' + esc(now.name) + '</span><span class="rline clamp">' + esc(now.text) + '</span></div>' : '') +
+    '<div class="composer tall"><label class="sr" for="brief">' + (now ? 'What do you want changed?' : 'Brief') + '</label><textarea id="brief" rows="' + (now ? 4 : 6) + '"' + (now ? ' placeholder="What do you want changed?"' : '') + '>' + esc(brief) + '</textarea></div>' +
     '<button type="button" class="btn-primary" data-act="aosstart" data-arg="' + esc(name) + '">Start a session</button>', title, 'brief');
+  if (now) $('brief').focus();
 }
-// Start a session in agent-os with the brief; the page goes back to where Ben was.
+// Start a session in agent-os and go to it in the Claude app. iOS can refuse that jump this long after the tap,
+// so the page stays as Session started, with a link Ben can tap.
 function aosStart(name, el) {
-  var ta = $('brief'), text = ta ? ta.value.trim() : '';
+  var ta = $('brief'), text = ta ? ta.value.trim() : '', page = topPage(), now = AOS_NOW;
   if (!text) { if (ta) ta.focus(); return; }
+  if (now) text = now.kind + ' “' + now.name + '”: ' + now.text + '\n\nWhat I want changed: ' + text;
   busy(el, true, 'Starting…');
-  postAct('start', { kind: 'aos', arg: name, brief: text }).then(function () {
-    if (stack.length && stack[stack.length - 1].route === 'brief') popPage();
-    toast('Session started in agent-os'); loadSoon();
+  postAct('start', { kind: 'aos', arg: name, brief: text }).then(function (r) {
+    var url = r.url || 'https://claude.ai/code';
+    loadSoon();
+    window.open(url, '_blank', 'noopener');
+    if (!stack.length || topPage() !== page) { toast('Session started in agent-os'); return; }
+    var html = '<div class="sh-item"><p class="rapp">' + appIcon('agent-os') + 'agent-os</p><h2>Session started</h2></div>' +
+      outLink(url, 'btn-primary', 'Open in the Claude app');
+    stack[stack.length - 1].html = html; page.querySelector('.pg-body').innerHTML = html;
   }, function (err) { busy(el, false); toast('Couldn’t start the session: ' + err.message); });
 }
 // Run it / Run all: a session in agent-os runs the eval (about $0.50 a case) and reports; Billboard doesn't run it itself.
