@@ -245,7 +245,7 @@ const firstSentence = (t, max = 160) => {
 };
 const PICK = /\s*[-—–(]*\s*(?:\(?my pick\)?|my pick\.?|is my pick\.?)\s*\)?\.?\s*$/i;
 function cleanOpt(t) {
-  let o = plain(t).replace(/\bMy pick\.?/gi, '').replace(/[-—–]\s*$/, '').trim();
+  let o = plain(t).replace(/\s*\(?\bmy pick\b\)?\.?/gi, '').replace(/[-—–]\s*$/, '').trim();
   const m = o.match(/^(.{8,}?[.:;])(\s|$)/);
   if (m && m[1].length < o.length) o = m[1].replace(/[.:;]$/, '');
   o = o.replace(PICK, '').replace(/[,:;\s—–-]+$/, '');
@@ -272,19 +272,21 @@ function parseQuestion(text) {
   if (cur.length) paras.push(cur);
   if (!paras.length) return [];
   const NUM = /^\s{0,3}(\d+)[.)]\s+(.*)$/, SUB = /^\s+(?:[-*]\s+)?([a-z])[.)]\s+(.*)$/;
+  const indent = (l) => l.match(/^\s*/)[0].length;
   // Walk back over the last few paragraphs, collecting numbered lists and the line that leads into each.
   const tail = paras.slice(-6);
   const flat = tail.flat();
   const parts = [];
   for (let k = 0; k < flat.length; k++) {
     if (!NUM.test(flat[k])) continue;
-    const items = [];
+    const items = [], base = indent(flat[k]);
     let j = k;
     for (; j < flat.length; j++) {
-      const n = flat[j].match(NUM), sub = flat[j].match(SUB);
-      if (n) items.push({ text: n[2], subs: [] });
-      else if (sub && items.length) items[items.length - 1].subs.push(sub[2]);
-      else if (/^\s+\S/.test(flat[j]) && items.length) items[items.length - 1].text += ' ' + flat[j].trim();
+      const n = flat[j].match(NUM), sub = flat[j].match(SUB), it = items[items.length - 1];
+      if (n && it && indent(flat[j]) >= base + 2) it.subs.push(n[2]); // numbered options nested under a numbered question
+      else if (n) items.push({ text: n[2], subs: [], after: '' });
+      else if (sub && it) it.subs.push(sub[2]);
+      else if (/^\s+\S/.test(flat[j]) && it) { if (it.subs.length) it.after += ' ' + flat[j].trim(); else it.text += ' ' + flat[j].trim(); }
       else break;
     }
     const lead = k > 0 ? plain(flat[k - 1]) : '';
@@ -292,10 +294,15 @@ function parseQuestion(text) {
       for (const i of items) {
         // A numbered question, or a numbered heading with lettered options under it ("For the sites that refuse:").
         if (!/\?/.test(i.text) && i.subs.length < 2) continue;
-        const q = /\?/.test(i.text) ? plain(i.text.slice(0, i.text.indexOf('?') + 1)) : plain(i.text).replace(/[\s:,;.—–-]+$/, '') + '?';
+        const head = i.subs.length >= 2 && !/\?/.test(i.text) ? (i.text.match(/^\*\*(.+?)\*\*/) || [])[1] : '';
+        const q = head ? plain(head).replace(/^["“]|[\s:,;.?!"”—–-]+$/g, '') + '?'
+          : /\?/.test(i.text) ? plain(i.text.slice(0, i.text.indexOf('?') + 1)) : plain(i.text).replace(/[\s:,;.—–-]+$/, '') + '?';
         if (i.subs.length >= 2) {
           const pick = Math.max(0, i.subs.findIndex((x) => /my pick/i.test(x)));
           parts.push({ q, opts: i.subs.map(cleanOpt), pick });
+          // A question written after the options ("Also, what was the bug?") is a question of its own.
+          const more = (plain(i.after).match(/[^.?!]*\?/) || [''])[0].trim().replace(/^(?:also|and|finally),?\s+/i, '').replace(/^./, (c) => c.toUpperCase());
+          if (more) parts.push({ q: more, ...yesNo(more) });
         } else parts.push({ q, ...yesNo(i.text, q) });
       }
     } else if (items.length >= 2 && (/\?\s*$/.test(lead) || /\bmy pick\b|\boptions\b/i.test(lead))) {
