@@ -118,5 +118,5 @@ export async function startSession(body) {
 export const ROUTES = {
   '/api/act/start': startSession,
   '/api/act/clear': async (b) => (b && b.undo ? unclearAsk(b.id) : clearAsk(b && b.id, b && b.text, b && b.label)),
-  '/api/act/archive': async (b) => (b && b.undo ? unarchive(b.id) : archive(b && b.id))
+  '/api/act/archive': async (b) => { const r = b && b.undo ? unarchive(b.id) : archive(b && b.id); refreshSoon(); return r; }
 };

@@ -39,6 +39,13 @@ export function summarize(records) {
   return { terminal, working, promptAt, started };
 }
 
+// The report an item or a session's screen shows for a closing declaration.
+export function reportOf(t) {
+  const r = t.report || {};
+  const n = t.kind === 'ask' && t.questions ? t.questions.length : 0;
+  return { works: r.works || '', left: r.left || '', needs: n ? (n === 1 ? 'The question.' : `The ${n} questions.`) : t.kind === 'ask' && t.action ? t.action.text : '' };
+}
+
 export function hasClosed(session) {
   try { return !!summarize(parse(readFileSync(join(DIR, session + '.jsonl'), 'utf8'))).terminal; } catch { return false; }
 }

@@ -5,7 +5,7 @@
    pending    Its session as a row: what the agent is doing this minute, its time, cost, helpers and branch (or that it ended), opening the session's screen (Ben, 2026-11-08: a way to the agent from Work)
    pending    An item's page is a full screen pushed from Today, Work or a project, with its own route
    pending    The PR and the Claude app as small links beside the title (Ben: rarely used)
-   pending    The badge says who has it now: You, Agent, Live, Stuck, Paused, or the automated job that holds it (Secret scan, Deploying, EAS build, TestFlight)
+   pending    The badge says who has it now: You, Agent, Live, Stuck, or the automated job that holds it (Secret scan, Deploying, EAS build, TestFlight)
    pending    A job's line says how long it has run against how long it usually takes
    dropped    2026-11-07 "Who's on it" badges (Agent on it, Waiting on GitHub, No one on it): Ben prefers the short ones
    dropped    2026-11-07 A plain "GitHub" badge: it named a website, not what was happening
@@ -16,7 +16,7 @@
 */
 'use strict';
 
-var WHO = { ben: ['You', 'orange'], agent: ['Agent', 'indigo'], job: ['', 'teal'], live: ['Live', 'green'], stuck: ['Stuck', 'red'], paused: ['Paused', 'gray'] };
+var WHO = { ben: ['You', 'orange'], agent: ['Agent', 'indigo'], job: ['', 'teal'], live: ['Live', 'green'], stuck: ['Stuck', 'red'] };
 function findItem(id) { return S.items.filter(function (i) { return i.id === id; })[0]; }
 function whoChip(i) { var w = WHO[i.who]; return '<span class="who ' + w[1] + '">' + (i.who === 'agent' || i.who === 'job' ? '<span class="pulse" aria-hidden="true"></span>' : '') + (i.who === 'job' ? i.job : w[0]) + '</span>'; }
 
@@ -44,7 +44,7 @@ function questionBlock(q, isMenu) {
 
 function itemBody(id) {
   var i = findItem(id); if (!i) return '<p class="empty">Gone.</p>';
-  var why = i.who === 'ben' ? (i.question ? 'Waiting on your answer' + (i.sessionEnded ? '. Its session has ended.' : '.') : 'Only you can do this.') : i.reason || '';
+  var why = i.who === 'ben' ? (i.question ? 'Waiting on your answer.' : 'Only you can do this.') : i.reason || '';
   var head = '<div class="sh-item" style="--app:' + appOf(i.app).color + '"><p class="rapp">' + appIcon(i.app) + esc(i.app) + '</p><h2>' + esc(i.title) + '</h2>' +
     (i.pr ? outLink(ghUrl(i.app, '/pull/' + i.pr), 'prlink', 'PR #' + i.pr + ' ↗') : '') +
     '<p class="sh-who">' + whoChip(i) + '<span>' + esc(why) + '</span></p></div>' + '<div class="trackcard">' + trackHTML(i, true) + '</div>';
@@ -65,7 +65,10 @@ function itemBody(id) {
   if (i.who === 'ben' && i.question) acts += '<button type="button" class="btn-primary" data-act="sendanswer" data-arg="' + i.id + '"' + (picksDone(i) ? '' : ' disabled') + '>Send</button><button type="button" class="btn-plain" data-act="session" data-arg="' + i.id + '">Reply in your words</button>';
   else if (i.who === 'ben' && i.ask.kind === 'mock') acts += '<button type="button" class="btn-primary" data-act="buildit" data-arg="' + i.id + '">Build it</button>' + outLink(mockOf(i.app).url, 'btn-plain', 'Open ' + esc(mockOf(i.app).name)) + '';
   else if (i.who === 'ben') acts += '<button type="button" class="btn-primary" data-act="clear" data-arg="' + i.id + '|' + (i.ask.kind === 'do' ? 'Done' : 'Works') + '">' + (i.ask.kind === 'do' ? 'Done' : 'It works') + '</button><button type="button" class="btn-plain" data-act="off" data-arg="' + i.id + '">Something’s off</button>';
-  else if (i.who === 'stuck') acts += '<button type="button" class="btn-primary" data-act="fix" data-arg="' + i.id + '">Fix it</button>';
+  else if (i.who === 'stuck') {
+    if (i.pr && i.stuckBy !== 'silent') acts += '<button type="button" class="btn-primary" data-act="fix" data-arg="' + i.id + '">Fix it</button>';
+    if (i.stuckBy && sessionOf(i.id)) acts += '<button type="button" class="btn-plain" data-act="archive" data-arg="' + sessionOf(i.id).id + '">Archive</button>';
+  }
   acts += '</div>';
   return head + ask + q + (acts === '<div class="acts"></div>' ? '' : acts) + sessionRow(i) + menu + rep + facts;
 }
@@ -75,7 +78,7 @@ function sessionRow(i) {
   if (!s && !i.session) return '';
   var cost = s && s.cost != null ? '$' + s.cost.toFixed(2) : 'Cost not on record';
   var meta = s ? (on ? (s.mins != null ? [s.mins + ' min'] : []).concat([cost], s.helpers ? [plural(s.helpers, 'helper', 'helpers')] : [], s.branch ? [s.branch] : [])
-    : [s.since ? 'Turn ended ' + s.since : 'Turn ended', cost]) : ['Ended'];
+    : (i.sessionEnded ? ['Not running'] : []).concat([s.since ? 'Turn ended ' + s.since : 'Turn ended', cost])) : ['Not running'];
   return '<h2 class="sec">Session</h2><ul class="list"><li><button type="button" class="row noicon" data-act="session" data-arg="' + i.id + '"><span class="rbody">' +
     '<span class="rtitle">' + (on ? '<span class="pulse live" aria-hidden="true"></span>' : '') + esc(s ? s.title : i.session) + '</span>' +
     (s ? '<span class="rline">' + esc(s.doing) + '</span>' : '') + '<span class="rquiet">' + meta.map(esc).join(' · ') + '</span></span>' + CHEV + '</button></li></ul>';

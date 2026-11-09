@@ -5,7 +5,7 @@
 
 var NOW = { day: '', time: '', lastLooked: '' }, BUILD = ['Build', 'PR', 'Live', 'Checked'], FROM_MOCK = ['In the mock', 'Build', 'PR', 'Live'];
 var ITEMS = [], SESSIONS = [], THREADS = {}, APPS = [], DAYS14 = [], DAY_PRS = {};
-var AOS = { version: '', rules: [], evals: {}, skills: [], permissions: { allow: 0, deny: 0, groups: [], denied: [], blocked: [] }, memories: [] }, PART_INFO = {}, VERSIONS = [];
+var AOS = { version: '', rules: [], evals: {}, skills: [], permissions: { allow: 0, deny: 0, groups: [], denied: [] }, memories: [] }, PART_INFO = {}, VERSIONS = [];
 // Which routes have loaded at least once, and which failed on the latest try.
 var LOADED = {}, FAILED = {};
 
@@ -24,7 +24,7 @@ var ROUTES = {
   agentos: function (ao) {
     var a = ao.aos || {}, p = a.permissions || {};
     AOS = { version: a.version || '', rules: a.rules || [], evals: a.evals || {}, skills: a.skills || [], memories: a.memories || [],
-      permissions: { allow: p.allow || 0, deny: p.deny || 0, groups: p.groups || [], denied: p.denied || [], blocked: p.blocked || [] } };
+      permissions: { allow: p.allow || 0, deny: p.deny || 0, groups: p.groups || [], denied: p.denied || [] } };
     Object.keys(p).forEach(function (k) { if (!(k in AOS.permissions)) AOS.permissions[k] = p[k]; });
     Object.keys(a).forEach(function (k) { if (!(k in AOS)) AOS[k] = a[k]; });
     PART_INFO = ao.partInfo || {}; VERSIONS = ao.versions || [];

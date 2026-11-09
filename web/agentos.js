@@ -5,7 +5,7 @@
    pending    A rule's page: its text, its evals with and without it (or Missing eval), its history, and Change with an agent
    pending    Skills: one flat list, all in agent-os; a skill's page: loads by week, the sessions that loaded it and how they ended, its cost and failed calls while loaded, its evals, its contents, Change with an agent
    pending    Evals: grouped worse, same, better with the rules; an eval's page: its scores, its runs, the rules and skills it tests, Run it
-   pending    Permissions: Allowed (by kind, each opening its list) and Denied open their lists; prompts blocked this week, each with Allow (a session in agent-os)
+   pending    Permissions: Allowed (by kind, each opening its list) and Denied open their lists
    pending    Memories, as Claude Code keeps them: one folder per project; a project's page is its MEMORY.md in order (title, its line, its type), which loads into every session there
    pending    A memory's page: what it says, its type and file, its line in MEMORY.md, its links (a missing one marked) and the memories that link to it
    dropped    2026-11-08 Moving a memory into a rule, a skill or AGENTS.md: Ben, not now; memories grouped by type: MEMORY.md is one ordered list
@@ -52,7 +52,7 @@ function agentosHTML() {
     ['rules', 'Rules', AOS.rules.length + ' · ' + missing + ' missing an eval', 'g-ins', 'R', 0],
     ['skills', 'Skills', AOS.skills.length + ' · ' + plural(loads, 'load', 'loads') + ' in 30 days', 'g-cap', 'S', 0],
     ['evals', 'Evals', Object.keys(AOS.evals).length ? Object.keys(AOS.evals).length + (evalAvg(0) == null ? ' · not run' : ' · ' + evalAvg(0) + '% with the rules' + (evalAvg(1) == null ? '' : ', ' + evalAvg(1) + '% without')) : 'None yet', 'g-mea', 'E', worse],
-    ['perms', 'Permissions', AOS.permissions.allow + ' allowed · ' + AOS.permissions.deny + ' denied', 'g-cap', 'P', AOS.permissions.blocked.length],
+    ['perms', 'Permissions', AOS.permissions.allow + ' allowed · ' + AOS.permissions.deny + ' denied', 'g-cap', 'P', 0],
     ['memories', 'Memories', AOS.memories.length + ' in ' + projects + ' projects · ' + plural(broken, 'missing link', 'missing links'), 'g-ins', 'M', 0]
   ];
   return '<ul class="list sections">' + rows.map(function (r) {
@@ -176,8 +176,7 @@ function listPage(kind) {
       (ks.length ? '<div class="acts"><button type="button" class="btn-plain" data-act="runeval" data-arg="*">Run all ' + ks.length + (evalCost(ks) ? ' · ' + evalCost(ks) : '') + '</button></div>' : '<p class="empty">No evals yet.</p>');
   }
   if (kind === 'perms') html = '<ul class="list"><li>' + go('allowed', '<span class="rbody"><span class="rtitle">Allowed</span></span><span class="kvv">' + AOS.permissions.allow + '</span>', 'noicon three') + '</li>' +
-    '<li>' + go('denied', '<span class="rbody"><span class="rtitle">Denied</span></span><span class="kvv">' + AOS.permissions.deny + '</span>', 'noicon three') + '</li></ul>' +
-    sec('Blocked this week') + '<ul class="list">' + AOS.permissions.blocked.map(function (b) { return '<li><div class="row static">' + appIcon(b[1]) + '<span class="rbody"><span class="rtitle mono" style="overflow-wrap:anywhere">' + esc(b[2]) + '</span><span class="rline">' + esc(b[3]) + '</span><span class="rquiet">' + esc(b[0]) + '</span></span><button type="button" class="btn-link" data-act="aosbrief" data-arg="allow:' + esc(b[2]) + '">Allow</button></div></li>'; }).join('') + '</ul>';
+    '<li>' + go('denied', '<span class="rbody"><span class="rtitle">Denied</span></span><span class="kvv">' + AOS.permissions.deny + '</span>', 'noicon three') + '</li></ul>';
   if (kind === 'allowed') html = '<ul class="list">' + AOS.permissions.groups.map(function (g) {
     return '<li>' + go('group:' + g[0], '<span class="rbody"><span class="rtitle">' + esc(g[0]) + '</span><span class="rquiet">' + esc(g[2]) + '</span></span><span class="kvv">' + g[1] + '</span>', 'noicon three') + '</li>';
   }).join('') + '</ul>';
@@ -203,7 +202,6 @@ function aosBrief(arg) {
   if (k === 'rule') { var r = rule(p[1]) || { name: p[1], text: '' }; name = 'Rule: ' + r.name; brief = 'Rule “' + r.name + '”: ' + r.text + '\n\nWhat I want changed: '; }
   if (k === 'skill') { name = 'Skill: ' + p[1]; brief = 'Skill “' + p[1] + '”.\n\nWhat I want changed: '; }
   if (k === 'neweval') { var r2 = rule(p[1]) || { name: p[1] }; title = 'Write an eval'; name = 'Eval for ' + r2.name; brief = 'Write an eval case for the rule “' + r2.name + '”: one that fails without it.'; }
-  if (k === 'allow') { title = 'Allow a command'; name = 'Allow ' + p.slice(1).join(':'); brief = 'Allow this in the permissions: ' + p.slice(1).join(':'); }
   if (k === 'removeps') { title = name = 'Remove PowerShell rules'; var ps = AOS.permissions.groups.filter(function (g) { return g[0] === 'PowerShell commands'; })[0]; brief = 'Remove the ' + (ps ? ps[1] + ' ' : '') + 'PowerShell allow rules; boris never runs PowerShell.'; }
   openSheet('<div class="sh-item"><p class="rapp">' + appIcon('agent-os') + 'agent-os</p><h2>' + esc(title) + '</h2></div>' +
     '<div class="composer tall"><label class="sr" for="brief">Brief</label><textarea id="brief" rows="6">' + esc(brief) + '</textarea></div>' +
