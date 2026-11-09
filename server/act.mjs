@@ -41,19 +41,21 @@ function evalCases() {
   catch { return []; }
 }
 
-// The Claude Code session id behind a background job, once its state file is written (best effort, a few seconds).
+// The Claude Code session id and app link behind a background job. The link is written after the id, so wait for it (best effort, about 10 s).
 async function sessionIdOf(job) {
-  for (let k = 0; k < 10; k++) {
+  let sessionId = '';
+  for (let k = 0; k < 25; k++) {
     try {
       const dir = readdirSync(JOBS).find((d) => d.startsWith(job));
       if (dir) {
         const st = JSON.parse(readFileSync(join(JOBS, dir, 'state.json'), 'utf8'));
-        if (st.sessionId) return { sessionId: st.sessionId, url: st.bridgeSessionId ? `https://claude.ai/code/${st.bridgeSessionId.replace(/^cse_/, 'session_')}` : null };
+        if (st.sessionId) sessionId = st.sessionId;
+        if (sessionId && st.bridgeSessionId) return { sessionId, url: `https://claude.ai/code/${st.bridgeSessionId.replace(/^cse_/, 'session_')}` };
       }
     } catch { /* not written yet */ }
     await new Promise((r) => setTimeout(r, 400));
   }
-  return { sessionId: '', url: null };
+  return { sessionId, url: null };
 }
 
 // After a start, the sources look again sooner than their own timers, so the new session is on Work within seconds.
