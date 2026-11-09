@@ -24,6 +24,7 @@ Ben's command centre for his work with Claude Code on boris: see everything, act
   - `server/index.mjs`: the server, port 4710 on all interfaces; routes under `/api/`. `server/CONTRACT.md` documents every route and object shape; keep it current.
   - `server/sources/`: one module per data kind (`items.mjs`, `sessions.mjs`, `projects.mjs`, `agentos.mjs`), each async; they return `server/fixtures.mjs` (the mock's `data.js`, verbatim) until they read boris.
   - `web/`: the page. `index.html` (the mock's styles and markup), `data.js` (loads the API into the globals the mock's `data.js` declared), the feature files as in the mock, and `shell.js` (the mock's, without the Demo panel). `demo.js` and `pushes.js` aren't ported.
+  - `bin/billboard-mcp.mjs`, `bin/billboard-hook.mjs`, `server/declared.mjs`: the tools agents use to declare where their session stands, and the store behind them (`server/CONTRACT.md`, Declarations).
   - `deploy/billboard.service`: the systemd user unit. `docs/DEPLOY.md`: how it deploys and how the runner is registered.
 - Run it locally: `PORT=4799 node server/index.mjs` from your worktree (4710 is the live service), then open http://localhost:4799.
 - Check a change: run it and drive the tabs and pages it touches with Playwright at 390x844 (no console errors, `scrollWidth` stays 390). Playwright isn't installed in this repo; a throwaway script with `NODE_PATH=/home/ben/.npm/_npx/e41f203b7505f1fb/node_modules` finds a copy on boris. Don't commit the script.

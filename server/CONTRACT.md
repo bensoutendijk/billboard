@@ -164,6 +164,24 @@ Sending into a running session (Send, Reply, Build it, Something's off) is not b
 text, but the session receives it as a message from another Claude session (`origin: peer`, "Another Claude session sent a message"), not as
 Ben's. Those buttons say so.
 
+## Declarations
+Agents tell Billboard where their session stands through typed tools; Billboard never works it out from what they wrote. `bin/billboard-mcp.mjs` is the MCP
+server (`billboard`, stdio, one copy per session, standard library only) and `bin/billboard-hook.mjs` the Claude Code hook (`UserPromptSubmit` and `Stop`, for
+sessions in a project under `~/projects`). Agent OS registers both for every session on boris. Both write through `server/declared.mjs` to one append-only file per session:
+`~/.local/state/billboard/declared/<sessionId>.jsonl` (`BILLBOARD_STATE` overrides the folder). A session with no file predates the tools.
+
+Each line is `{ v: 1, at: "<ISO time>", kind, ...fields }`. A reader skips a kind it doesn't know, so new kinds and fields can be added.
+| `kind` | Fields | Written by |
+|---|---|---|
+| `prompt` | | the hook: a new turn began, which clears the last turn's declaration |
+| `working` | `doing`, `from?` | an agent starting a piece of work, or changing what it works on |
+| `ask` | `questions` `[{ q, options: string[], pick? }]` or `action` `{ kind: 'try'\|'do'\|'mock', text }`, `report?` | an agent ending its turn waiting on Ben |
+| `waiting` | `on`, `report?` | an agent ending its turn waiting on something that isn't Ben |
+| `done` | `report`, `offers?`, `pick?` | an agent ending its turn with nothing more to do; `report.left` says what it left unfinished |
+
+`report` is `{ works?, left? }`. `pick` is an index, present only when the agent named one. The `Stop` hook sends an agent back once if its turn is ending with no `ask`,
+`waiting` or `done`.
+
 ## GET /api/projects
 ```
 {
