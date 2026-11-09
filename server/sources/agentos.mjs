@@ -94,34 +94,17 @@ async function readProm() {
   return s;
 }
 
-// ---- transcripts: session titles and projects, Skill loads, and permission denials ----
+// ---- transcripts: session titles and projects, and Skill loads ----
 const fileCache = new Map(); // path -> { key, result }
 function projectOfCwd(cwd) {
   const m = /^\/home\/[^/]+\/projects(?:\/([^/]+))?/.exec(cwd || '');
   return m ? (m[1] || '~/projects') : '';
 }
-function deniedWhy(text) {
-  let m = /auto mode classifier\. Reason: \[([^\]]+)\]/.exec(text);
-  if (m) return 'Auto mode: ' + m[1];
-  m = /auto mode classifier\. Reason: ([^\n]*?)(?:\.\s|$)/.exec(text);
-  if (m) return 'Auto mode: ' + m[1].slice(0, 140);
-  if (/built-in Claude Code safety check/.test(text)) return 'A built-in safety check';
-  if (/has been denied/.test(text)) return 'A deny rule in the permissions';
-  return 'Denied';
-}
-function clip(s, n) { s = s.trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; }
-function toolWhat(name, input) {
-  input = input || {};
-  if (name === 'Bash' || name === 'PowerShell') return clip(String(input.command || '').split('\n')[0], 60) || name;
-  const short = name.startsWith('mcp__') ? name.split('__').slice(2).join('__') : name;
-  const arg = input.file_path || input.url || input.pattern || input.path || input.skill || input.description || '';
-  return clip(short + (arg ? ' ' + String(arg) : ''), 60);
-}
 async function scanFile(path, st) {
   const text = await readText(path);
-  const out = { sessionId: '', cwd: '', title: '', aiTitle: '', prompt: '', loads: [], denials: [] };
+  const out = { sessionId: '', cwd: '', title: '', aiTitle: '', prompt: '', loads: [] };
   if (!text) return out;
-  const lines = text.split('\n'), want = new Map();
+  const lines = text.split('\n');
   for (const line of lines) {
     if (!line) continue;
     if (!out.sessionId) { const m = /"sessionId":"([^"]+)"/.exec(line); if (m) out.sessionId = m[1]; }
@@ -142,30 +125,6 @@ async function scanFile(path, st) {
         const j = JSON.parse(line);
         for (const c of j.message?.content || []) if (c.type === 'tool_use' && c.name === 'Skill' && c.input?.skill) out.loads.push({ at: Date.parse(j.timestamp), skill: c.input.skill });
       } catch {}
-    }
-    if (line.includes('"is_error":true') && line.includes('denied')) {
-      try {
-        const j = JSON.parse(line);
-        for (const c of j.message?.content || []) {
-          if (c.type !== 'tool_result' || !c.is_error) continue;
-          const t = typeof c.content === 'string' ? c.content : (c.content || []).map((x) => x.text || '').join(' ');
-          if (/^(Error: )?Permission (for this (action|command) was denied|to use .* has been denied)/.test(t)) {
-            const d = { at: Date.parse(j.timestamp), id: c.tool_use_id, why: deniedWhy(t), what: '' };
-            out.denials.push(d); want.set(c.tool_use_id, d);
-          }
-        }
-      } catch {}
-    }
-  }
-  if (want.size) {
-    for (const line of lines) {
-      if (!line.includes('"tool_use"')) continue;
-      for (const [id, d] of want) {
-        if (!line.includes(id)) continue;
-        try {
-          for (const c of JSON.parse(line).message?.content || []) if (c.type === 'tool_use' && c.id === id) d.what = toolWhat(c.name, c.input);
-        } catch {}
-      }
     }
   }
   out.mtime = st.mtimeMs;
@@ -352,7 +311,7 @@ async function readMemories() {
 }
 
 // ---- permissions: ~/.claude/settings.json ----
-function readPermissions(settings, denials) {
+function readPermissions(settings) {
   const p = settings?.permissions || {}, allow = p.allow || [], deny = p.deny || [];
   const inner = (r) => (/^[^(]+\((.*)\)$/.exec(r) || [, r])[1];
   const groups = [], lists = {};
@@ -374,15 +333,7 @@ function readPermissions(settings, denials) {
     const verb = { Read: 'Reading', Edit: 'Editing', Write: 'Writing', Bash: 'Running', WebFetch: 'Fetching' }[m[1]] || m[1];
     return verb + ' ' + m[2];
   };
-  const week = Date.now() - 7 * DAY, seen = new Set(), blocked = [];
-  for (const d of denials.filter((x) => x.at >= week).sort((a, b) => b.at - a.at)) {
-    const key = d.what + '|' + d.why;
-    if (!d.what || seen.has(key)) continue;
-    seen.add(key);
-    blocked.push([dayLabel(d.at), d.app || '', d.what, d.why]);
-    if (blocked.length >= 30) break;
-  }
-  return { allow: allow.length, deny: deny.length, groups, lists, denied: deny.map((r) => [r, meaning(r)]), blocked };
+  return { allow: allow.length, deny: deny.length, groups, lists, denied: deny.map((r) => [r, meaning(r)]) };
 }
 
 // ---- assembling it ----
@@ -394,9 +345,7 @@ async function build() {
   const { evals, evalInfo, byVersion } = await readEvals(rules, skills, ver.at);
   let settings = null; try { settings = JSON.parse(settingsText || '{}'); } catch {}
 
-  const denials = [];
-  for (const r of scan.results) for (const d of r.denials) denials.push({ ...d, app: scan.sessions.get(r.sessionId)?.app || projectOfCwd(r.cwd) });
-  const permissions = readPermissions(settings, denials);
+  const permissions = readPermissions(settings);
 
   // Per-session rows, from Prometheus when it answers.
   const sessions = ps ? [...ps.values()] : [];

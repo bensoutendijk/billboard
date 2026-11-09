@@ -1,7 +1,7 @@
 /* LEDGER: today (the Today tab: what waits on Ben, and what finished that he hasn't seen)
    pending    Waiting on you: a section heading with the count and See all, which opens every question and ask grouped
    pending    Waiting cards: one swipeable card per question or ask, questions first; tap an option and Send, or It works / Something's off / Build it, right on the card
-   pending    A question asked while work is open stays after its session ends, marked "session ended"; only the main session counts
+   pending    A question stays after its session stops running; only what the main session declares counts
    pending    Ready for you: asks only Ben can do, shown once the change is live (mock asks show at once); Works or Done clears them, with Undo
    pending    Done: finished items and sessions Ben hasn't opened yet; opening one marks it seen and it leaves the list (Ben, 2026-11-08)
    pending    The Today tab's badge counts what waits on Ben
@@ -21,7 +21,7 @@ function waitingAsks() { return waiting().filter(function (i) { return !i.questi
 function waitCard(i) {
   var a = appOf(i.app), body;
   if (i.question) {
-    body = '<p class="wkind">Question' + (i.sessionEnded ? ' · session ended' : '') + '</p><p class="wq">' + esc(i.question.parts[0].q) + '</p>' + answerOpts(i, true) +
+    body = '<p class="wkind">Question</p><p class="wq">' + esc(i.question.parts[0].q) + '</p>' + answerOpts(i, true) +
       '<div class="wacts"><button type="button" class="btn-primary sm" data-act="sendanswer" data-arg="' + i.id + '"' + (picksDone(i) ? '' : ' disabled') + '>Send</button>' +
       '<button type="button" class="btn-link" data-act="session" data-arg="' + i.id + '">Reply</button></div>';
   } else {
@@ -70,7 +70,7 @@ function todayHTML() {
 // See all: every question and ask, grouped.
 function waitRow(i) {
   var line = i.question ? i.question.parts[0].q : i.ask.text;
-  return '<li><button type="button" class="row" data-act="item" data-arg="' + i.id + '">' + appIcon(i.app) + '<span class="rbody"><span class="rapp">' + esc(i.app) + (i.sessionEnded ? ' · session ended' : '') + '</span>' +
+  return '<li><button type="button" class="row" data-act="item" data-arg="' + i.id + '">' + appIcon(i.app) + '<span class="rbody"><span class="rapp">' + esc(i.app) + '</span>' +
     '<span class="rtitle">' + esc(i.title) + '</span><span class="rline">' + esc(line) + '</span></span>' + CHEV + '</button></li>';
 }
 function waitingPage() {

@@ -1,8 +1,9 @@
 // Items: each piece of work with its track, who has it, its question or ask, report and facts (server/CONTRACT.md).
 // An item is a PR in a bensoutendijk repo under ~/projects (open, or merged in the last 14 days), joined to the
-// session that opened or merged it, or a session with no PR that is working, ended its turn on a question or ask, or is still open.
-// Sources: gh (PRs, checks, workflow runs), the Claude Code transcripts and live-session files under ~/.claude,
+// session that opened or merged it, or a session with no PR that is working or whose agent declared something unfinished.
+// Sources: gh (PRs, checks, workflow runs), what agents declared (server/declared.mjs), the records Claude Code keeps under ~/.claude,
 // Prometheus's agent_os_session_pr (which session merged which PR), and the sessions module for titles and "doing".
+// Billboard never reads meaning out of what an agent wrote.
 // Who has it and where it is on its track are worked out from facts on every refresh, never stored.
 // Everything is cached and refreshed in the background every minute, so a request never waits on gh.
 import { execFile } from 'node:child_process';
@@ -12,6 +13,7 @@ import { basename, join } from 'node:path';
 import * as sessionsModule from './sessions.mjs';
 import { isSeen, lastLooked } from '../seen.mjs';
 import { clearedAsk, isArchived } from '../acted.mjs';
+import { readDeclared, reportOf } from '../declared.mjs';
 
 const BUILD = ['Build', 'PR', 'Live', 'Checked'];
 const FROM_MOCK = ['In the mock', 'Build', 'PR', 'Live'];
@@ -146,8 +148,7 @@ async function liveSessions() {
 // Per file: how far we've read and what we've learned. Only the main chain counts (no subagents, no sidechains).
 const files = new Map();
 function freshSession(id) {
-  return { id, cwd: '', firstTs: NaN, lastTs: NaN, title: '', firstPrompt: '', branches: new Map(), prLinks: new Map(),
-    lastHumanTs: NaN, lastMsgId: '', text: null };
+  return { id, cwd: '', firstTs: NaN, lastTs: NaN, title: '', branches: new Map(), prLinks: new Map() };
 }
 function eat(s, r) {
   const t = ms(r.timestamp);
@@ -163,22 +164,6 @@ function eat(s, r) {
     if (!(t <= s.lastTs)) s.lastTs = t;
   }
   if (r.gitBranch && !s.branches.has(r.gitBranch)) s.branches.set(r.gitBranch, t);
-  const c = r.message?.content;
-  if (r.type === 'user') {
-    if (r.isMeta) return;
-    const text = typeof c === 'string' ? c : Array.isArray(c) && !c.some((x) => x.type === 'tool_result') ? c.filter((x) => x.type === 'text').map((x) => x.text).join('\n') : null;
-    if (text == null || text.startsWith('<')) return; // tool results, commands and system notes aren't Ben's prompts
-    s.lastHumanTs = t;
-    if (!s.firstPrompt) s.firstPrompt = text;
-    return;
-  }
-  const mid = r.message?.id || r.uuid;
-  s.lastMsgId = mid;
-  const texts = Array.isArray(c) ? c.filter((x) => x.type === 'text' && x.text).map((x) => x.text) : [];
-  if (texts.length) {
-    if (s.text && s.text.msgId === mid) s.text.text += '\n' + texts.join('\n');
-    else s.text = { msgId: mid, ts: t, text: texts.join('\n') };
-  }
 }
 async function readNew(path, entry, onLine) {
   const st = await stat(path).catch(() => null);
@@ -236,139 +221,32 @@ function appOfCwd(cwd) {
   return cwd && cwd.startsWith(p) ? cwd.slice(p.length).split('/')[0] : '';
 }
 
-// ---------- reading the agent's last message ----------
-const plain = (t) => t.replace(/\*\*|__|`/g, '').replace(/\[([^\]]+)\]\((?:[^)]+)\)/g, '$1').replace(/\s+/g, ' ').trim();
-const firstSentence = (t, max = 160) => {
-  const m = plain(t).match(/^.*?[.?!](?=\s|$)/);
-  const s = (m ? m[0] : plain(t));
-  return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s;
-};
-const PICK = /\s*[-—–(]*\s*(?:\(?my pick\)?|my pick\.?|is my pick\.?)\s*\)?\.?\s*$/i;
-function cleanOpt(t) {
-  let o = plain(t).replace(/\s*\(?\bmy pick\b\)?\.?/gi, '').replace(/[-—–]\s*$/, '').trim();
-  const m = o.match(/^(.{8,}?[.:;])(\s|$)/);
-  if (m && m[1].length < o.length) o = m[1].replace(/[.:;]$/, '');
-  o = o.replace(PICK, '').replace(/[,:;\s—–-]+$/, '');
-  return o.length > 140 ? o.slice(0, 139).trimEnd() + '…' : o;
+// ---------- what the session's agent declared ----------
+// stuckBy says what can clear a stuck item: 'silent' and 'declared' Ben can archive; a stuck fact only a fix can clear.
+const NO_STATUS = { stuckBy: 'silent', reason: 'Its turn ended without a status.', short: 'Turn ended with no status' };
+const LEFT = (left) => ({ stuckBy: 'declared', reason: `Its session said it was done, with this left: ${left}`, short: 'Finished with something left' });
+const STOPPED = (on) => ({ stuckBy: 'declared', reason: `Waiting on ${on}, but its session isn't running.`, short: 'Session stopped waiting' });
+const clip = (t, max) => (t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t);
+// A session's closing declaration, as an item reads it; null if it hasn't made one this turn or is working.
+function closingOf(d, busy) {
+  const t = d?.terminal;
+  if (!t || busy) return null;
+  return {
+    kind: t.kind, at: ms(t.at), on: t.on || '', left: t.report?.left || '', report: reportOf(t),
+    question: t.kind === 'ask' && t.questions ? t.questions.map((q) => ({ q: q.q, opts: q.options || [], pick: q.pick ?? null })) : null,
+    ask: t.kind === 'ask' && t.action ? t.action : null,
+    offers: t.kind === 'done' && t.offers ? { opts: t.offers, pick: t.pick ?? null } : null
+  };
 }
-// A yes-or-no question gets Yes and No; an open one (which, what, where, this or that) gets no options: Ben replies in words.
-const OPEN_Q = /^(?:[^:]*:\s*)?(which|what|where|when|who|how|why)\b|\bor\b[^?]*\?\s*$/i;
-// "Should I X, or Y?" offers X and Y; the agent's pick is the one its "My pick is to …" names (else the first).
-function eitherOr(t, q) {
-  const m = q.match(/^(?:should i|shall i|should we|do you want me to|would you like me to)\s+(.+?),?\s+or\s+(.+?)\?$/i);
-  if (!m || m[1].split(/\s+/).length > 14 || m[2].split(/\s+/).length > 14) return null;
-  const opts = [m[1], m[2]].map((o) => o.replace(/^(?:i\s+|we\s+)?/i, '').replace(/^./, (c) => c.toUpperCase()));
-  const said = (t.match(/my pick is (?:to )?([^.]+)/i) || [])[1] || '';
-  const w = (o) => o.split(/\s+/)[0].toLowerCase();
-  return { opts, pick: said && said.toLowerCase().startsWith(w(opts[1])) && !said.toLowerCase().startsWith(w(opts[0])) ? 1 : 0 };
+function declaredFacts(facts, d, c, silent, lastTs) {
+  for (const x of d?.started || []) facts.push([x.at, `Started from ${x.from}`, '']);
+  if (c?.question) facts.push([c.at, c.question.length === 1 ? 'Asked you a question' : `Asked you ${c.question.length} questions`, '']);
+  else if (c?.ask) facts.push([c.at, c.ask.kind === 'mock' ? 'Asked you to try it in the mock' : 'Asked you: ' + clip(c.ask.text, 80), '']);
+  else if (c?.kind === 'waiting') facts.push([c.at, `Waiting on ${clip(c.on, 80)}`, '']);
+  else if (c?.kind === 'done') facts.push([c.at, c.left ? 'Its session said it was done, with something left' : 'Its session said it was done', '']);
+  else if (silent) facts.push([lastTs, 'Turn ended without a status', '']);
 }
-const yesNo = (t, q = t) => eitherOr(t, q) || (OPEN_Q.test(q) ? { opts: [], pick: 0 } : { opts: ['Yes', 'No'], pick: /my pick is no|no is my pick/i.test(t) ? 1 : 0 });
-
-// The open question(s) at the end of the message, as parts { q, opts, pick }; [] for none.
-function parseQuestion(text) {
-  const lines = text.split('\n');
-  const paras = []; let cur = [];
-  for (const l of lines) { if (l.trim()) cur.push(l); else if (cur.length) { paras.push(cur); cur = []; } }
-  if (cur.length) paras.push(cur);
-  if (!paras.length) return [];
-  const NUM = /^\s{0,3}(\d+)[.)]\s+(.*)$/, SUB = /^\s+(?:[-*]\s+)?([a-z])[.)]\s+(.*)$/;
-  const indent = (l) => l.match(/^\s*/)[0].length;
-  // Walk back over the last few paragraphs, collecting numbered lists and the line that leads into each.
-  const tail = paras.slice(-6);
-  const flat = tail.flat();
-  const parts = [];
-  for (let k = 0; k < flat.length; k++) {
-    if (!NUM.test(flat[k])) continue;
-    const items = [], base = indent(flat[k]);
-    let j = k;
-    for (; j < flat.length; j++) {
-      const n = flat[j].match(NUM), sub = flat[j].match(SUB), it = items[items.length - 1];
-      if (n && it && indent(flat[j]) >= base + 2) it.subs.push(n[2]); // numbered options nested under a numbered question
-      else if (n) items.push({ text: n[2], subs: [], after: '' });
-      else if (sub && it) it.subs.push(sub[2]);
-      else if (/^\s+\S/.test(flat[j]) && it) { if (it.subs.length) it.after += ' ' + flat[j].trim(); else it.text += ' ' + flat[j].trim(); }
-      else break;
-    }
-    const lead = k > 0 ? plain(flat[k - 1]) : '';
-    if (items.length >= 1 && items.some((i) => /\?/.test(i.text) || i.subs.length >= 2)) {
-      for (const i of items) {
-        // A numbered question, or a numbered heading with lettered options under it ("For the sites that refuse:").
-        if (!/\?/.test(i.text) && i.subs.length < 2) continue;
-        const head = i.subs.length >= 2 && !/\?/.test(i.text) ? (i.text.match(/^\*\*(.+?)\*\*/) || [])[1] : '';
-        const q = head ? plain(head).replace(/^["“]|[\s:,;.?!"”—–-]+$/g, '') + '?'
-          : /\?/.test(i.text) ? plain(i.text.slice(0, i.text.indexOf('?') + 1)) : plain(i.text).replace(/[\s:,;.—–-]+$/, '') + '?';
-        if (i.subs.length >= 2) {
-          const pick = Math.max(0, i.subs.findIndex((x) => /my pick/i.test(x)));
-          parts.push({ q, opts: i.subs.map(cleanOpt), pick });
-          // A question written after the options ("Also, what was the bug?") is a question of its own.
-          const more = (plain(i.after).match(/[^.?!]*\?/) || [''])[0].trim().replace(/^(?:also|and|finally),?\s+/i, '').replace(/^./, (c) => c.toUpperCase());
-          if (more) parts.push({ q: more, ...yesNo(more) });
-        } else parts.push({ q, ...yesNo(i.text, q) });
-      }
-    } else if (items.length >= 2 && (/\?\s*$/.test(lead) || /\bmy pick\b|\boptions\b/i.test(lead))) {
-      let qline = /\?/.test(lead) ? lead : (flat.slice(Math.max(0, k - 6), k).map(plain).reverse().find((l) => /\?$/.test(l)) || lead.replace(/\s*\(?my pick[^)]*\)?/i, '').replace(/[\s,:;]+$/, ''));
-      if (!/\?/.test(qline) && qline.split(/\s+/).length < 3) qline = qline && !/^options?$/i.test(qline) ? qline + '?' : 'Which way?';
-      const pick = Math.max(0, items.findIndex((x) => /my pick/i.test(x.text)));
-      parts.push({ q: qline.length > 200 ? firstSentence(qline, 200) : qline, opts: items.map((i) => cleanOpt(i.text)), pick });
-    }
-    k = j - 1;
-  }
-  if (parts.length) return parts.slice(0, 4);
-  // No list: a question in the last two paragraphs is a yes or no.
-  for (const p of paras.slice(-2).reverse()) {
-    const t = plain(p.join(' '));
-    const sentences = t.match(/[^.?!]*\?/g);
-    if (sentences && !/^nothing\b/i.test(t)) {
-      const q = sentences[sentences.length - 1].trim().replace(/^[^:]*:\s*(?=[a-z])/i, (m) => m).replace(/^./, (c) => c.toUpperCase());
-      return [{ q: q.length > 220 ? q.slice(0, 219) + '…' : q, ...yesNo(t, q) }];
-    }
-  }
-  return [];
-}
-
-// Something only Ben can do: { kind, text } or null.
-function parseAsk(text) {
-  const paras = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-  const HEAD = /^(?:\*\*)?\s*(needs you|needs ben|waiting on you|what you need to do|for you to do|your turn)\s*:?\s*(?:\*\*)?\s*:?\s*/i;
-  let ask = null;
-  for (let k = 0; k < paras.length; k++) {
-    const m = paras[k].match(HEAD);
-    if (!m) continue;
-    let rest = paras[k].slice(m[0].length).trim();
-    if (!rest && paras[k + 1]) rest = paras[k + 1];
-    if (rest) ask = rest;
-  }
-  if (!ask) {
-    const last = plain(paras.slice(-2).join(' '));
-    const m = last.match(/[^.!?]*\b(?:please )?try (?:it|them|the [^.!?]{1,40}) [^.!?]*\b(?:phone|app)\b[^.!?]*[.!?]?/i);
-    if (m) ask = m[0].trim();
-  }
-  if (!ask) return null;
-  ask = plain(ask);
-  if (/^(nothing|none)\b/i.test(ask) || /^nothing (else )?needs you/i.test(ask)) return null;
-  ask = ask.replace(/^\d+[.)]\s*/, '');
-  if (ask.length > 240) {
-    const two = (ask.match(/^.*?[.?!](?=\s|$)(?:.*?[.?!](?=\s|$))?/) || [ask])[0];
-    ask = two.length > 300 ? firstSentence(ask, 240) : two;
-  }
-  ask = ask.replace(/^./, (c) => c.toUpperCase());
-  const kind = (/\bmock(s)?\b/i.test(ask) && /build it|in the mock|the mock on your phone|mock first/i.test(ask)) || /\bsay\W{0,2}build it\b/i.test(ask) ? 'mock'
-    : /\btry\b|on your phone|\bcheck\b|\blook\b|\bopen\b/i.test(ask) ? 'try' : 'do';
-  return { kind, text: ask };
-}
-
-// The agent's last report: what works now, what's left, what needs Ben.
-function parseReport(text, question, ask) {
-  const paras = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-  const works = paras.length ? firstSentence(paras[0], 220) : '';
-  let left = '';
-  for (const p of paras) {
-    const m = p.match(/^(?:\*\*)?\s*(what'?s left|what’s left|left|still to do|not checked yet|not done yet|what i haven'?t (?:done|checked|compared) yet)\s*:?\s*(?:\*\*)?\s*:?\s*/i);
-    if (m) { left = firstSentence(p.slice(m[0].length) || '', 220); break; }
-  }
-  const needs = question.length ? (question.length === 1 ? 'The question.' : `The ${question.length} questions.`) : ask ? firstSentence(ask.text, 160) : '';
-  return { works, left, needs };
-}
+const menuOf = (c, now) => (c?.offers && now - c.at < DAY ? { asked: when(c.at, now), parts: [{ q: 'What next?', opts: c.offers.opts, pick: c.offers.pick }] } : null);
 
 // ---------- deploys and checks ----------
 function deployState(pr, repo, now) {
@@ -421,31 +299,20 @@ async function failedAt(run) {
 
 // ---------- building the items ----------
 function sessionTitle(s, named) {
-  const t = named?.title || s?.title || '';
-  if (t) return t;
-  const p = plain((s?.firstPrompt || '').replace(/https?:\/\/\S+/g, '')).replace(/^[\s:,.-]+/, '');
-  return p.length > 60 ? p.slice(0, 58).trimEnd() + '…' : p;
+  return named?.title || s?.title || '';
 }
 
 async function build() {
   const now = Date.now();
   const repos = await listRepos();
-  const [repoData, merges, live, transcripts, named, sfacts] = await Promise.all([
+  const [repoData, merges, live, transcripts, named, declared] = await Promise.all([
     Promise.all(repos.map((r) => readRepo(r, now).catch((err) => { console.error('items:', r.repo, err.message); return null; }))),
     mergedBy(),
     liveSessions(),
     readTranscripts(now),
     sessionsModule.getSessions().catch(() => []),
-    (sessionsModule.getSessionFacts ? sessionsModule.getSessionFacts() : Promise.resolve({})).catch(() => ({}))
+    readDeclared()
   ]);
-  // The sessions module's own reading of merges (its `gh pr merge` calls) fills gaps in Prometheus's.
-  for (const f of Object.values(sfacts || {})) {
-    if (!f || !f.app || !Array.isArray(f.prsMerged)) continue;
-    for (const n of f.prsMerged) {
-      const k = `${OWNER}/${f.app}#${n}`;
-      if (!merges.has(k)) merges.set(k, [f.id]);
-    }
-  }
   const namedById = new Map((Array.isArray(named) ? named : []).map((s) => [s.id, s]));
 
   // The session behind each PR: the one that opened it, else the one that merged it.
@@ -474,29 +341,18 @@ async function build() {
     }
   }
 
-  // Each session's closing words, when its turn ended on them and Ben hasn't answered since.
-  const finals = new Map();
-  for (const s of transcripts.values()) {
-    const status = live.get(s.id);
-    if (status === 'busy' || !s.text || s.text.msgId !== s.lastMsgId || !(s.text.ts > (s.lastHumanTs || 0))) continue;
-    const question = parseQuestion(s.text.text);
-    const ask = question.length ? null : parseAsk(s.text.text);
-    finals.set(s.id, { question, ask, at: s.text.ts, report: parseReport(s.text.text, question, ask) });
-  }
-
   const out = [];
-  for (const it of items) out.push(await prItem(it, { transcripts, live, namedById, finals, latestOf, now }));
+  for (const it of items) out.push(await prItem(it, { transcripts, live, namedById, declared, latestOf, now }));
 
-  // Sessions with no PR of their own: working now, ended their turn on a question or ask, or still open. Mock asks are their own item.
+  // Sessions with no PR of their own: working now, or their agent declared something unfinished, or their turn ended without a word. Mock asks are their own item.
   for (const s of transcripts.values()) {
     const app = appOfCwd(s.cwd);
     if (!app || s.lastTs < RULES_START || now - s.lastTs > WINDOW) continue;
-    const hasPr = latestOf.has(s.id), f = finals.get(s.id), status = live.get(s.id);
-    const mockAsk = f?.ask?.kind === 'mock';
-    if (hasPr && !mockAsk) continue;
-    const busy = status === 'busy';
-    if (!busy && !status && !(f && (f.question.length || f.ask))) continue;
-    out.push(sessionItem(s, app, { busy, status, alive: !!status, f, namedById, now }));
+    const status = live.get(s.id), busy = status === 'busy', blocked = !!status && !busy && status !== 'idle';
+    const d = declared.get(s.id), c = closingOf(d, busy), silent = !!d && !d.terminal && !busy && !blocked;
+    if (latestOf.has(s.id) && c?.ask?.kind !== 'mock') continue;
+    if (!busy && !blocked && !silent && !(c && (c.question || c.ask || c.kind === 'waiting' || c.left))) continue;
+    out.push(sessionItem(s, app, { busy, blocked, alive: !!status, d, c, silent, namedById, now }));
   }
 
   out.sort((a, b) => b._t - a._t);
@@ -504,13 +360,16 @@ async function build() {
 }
 
 async function prItem(it, ctx) {
-  const { transcripts, live, namedById, finals, latestOf, now } = ctx;
+  const { transcripts, live, namedById, declared, latestOf, now } = ctx;
   const pr = it._pr, repo = it._repo, s = transcripts.get(it.sessionId), status = live.get(it.sessionId);
-  const alive = !!status, busy = status === 'busy';
+  const alive = !!status, busy = status === 'busy', blocked = alive && !busy && status !== 'idle';
   const created = ms(pr.createdAt), merged = ms(pr.mergedAt);
-  const f = latestOf.get(it.sessionId) === it ? finals.get(it.sessionId) : null;
-  const question = f?.question?.length ? f.question : null;
-  const ask = !question && f?.ask && f.ask.kind !== 'mock' ? f.ask : null;
+  // A session's declaration belongs to its latest PR.
+  const d = latestOf.get(it.sessionId) === it ? declared.get(it.sessionId) : null;
+  const c = closingOf(d, busy), silent = !!d && !d.terminal && !busy && !blocked;
+  const question = c?.question || null;
+  const ask = c?.ask && c.ask.kind !== 'mock' ? c.ask : null;
+  const archived = isArchived(it.sessionId); // Ben archived it: what only a declaration held no longer holds the PR
   const dep = pr.mergedAt ? deployState(pr, repo, now) : null;
   const check = !pr.mergedAt && pr.state === 'OPEN' ? runningCheck(pr, repo) : null;
   const badCheck = !pr.mergedAt ? failedCheck(pr) : null;
@@ -531,11 +390,10 @@ async function prItem(it, ctx) {
   if (dep?.state === 'passed') facts.push([dep.at, 'Deploy passed, live', 'Deploy run']);
   if (dep?.state === 'running') facts.push(dep.run.status === 'in_progress' ? [dep.at, 'Deploy run started', 'Deploy run'] : [ms(dep.run.createdAt), 'Deploy run queued', 'Deploy run']);
   if (dep?.state === 'failed') { failText = await failedAt(dep.run); facts.push([dep.at, 'Deploy failed' + (failText ? ` at ${failText}` : ''), 'Deploy run']); }
-  if (question) facts.push([f.at, question.length === 1 ? 'Asked you a question' : `Asked you ${question.length} questions`, '']);
-  else if (ask) facts.push([f.at, 'Asked you: ' + firstSentence(ask.text, 80), '']);
+  declaredFacts(facts, d, c, silent, s?.lastTs);
   if (s && !alive && Number.isFinite(s.lastTs)) {
     const end = question ? 'Session ended with the question open' : !pr.mergedAt ? 'Session ended, PR still open' : 'Session ended';
-    facts.push([Math.max(s.lastTs, f?.at || 0), end, '']);
+    facts.push([Math.max(s.lastTs, c?.at || 0), end, '']);
   }
 
   const item = {
@@ -565,9 +423,17 @@ async function prItem(it, ctx) {
   } else if (!liveDone && busy) {
     set('agent', { reason: doing || 'Its session is working.' });
   } else if (question) {
-    set('ben', { question: { asked: when(f.at, now), parts: question } });
+    set('ben', { question: { asked: when(c.at, now), parts: question } });
   } else if (ask && liveDone) {
     set('ben', { ask: { kind: ask.kind, text: ask.text, liveAt: when(liveAt, now) } });
+  } else if (c?.kind === 'waiting' && alive) {
+    set('job', { job: clip(c.on, 24), reason: `Waiting on ${c.on}.` });
+  } else if (c?.kind === 'waiting' && !archived) {
+    set('stuck', STOPPED(c.on));
+  } else if (silent && !archived) {
+    set('stuck', NO_STATUS);
+  } else if (c?.left && !archived) {
+    set('stuck', LEFT(c.left));
   } else if (liveDone) {
     set('live', { reason: `Live since ${when(liveAt, now)}. Nothing for you to check.`, unseen: !isSeen(it.id, liveAt) });
   } else if (!pr.mergedAt && !alive) {
@@ -580,31 +446,32 @@ async function prItem(it, ctx) {
   } else {
     set('agent', { reason: `Deploy failed; its session is on it.` });
   }
-  if (f && (latestOf.get(it.sessionId) === it)) item.report = f.report;
+  if (c) item.report = c.report;
+  item.menu = menuOf(c, now);
   return finish(item, facts, now);
 }
 
-function sessionItem(s, app, { busy, status, alive, f, namedById, now }) {
+function sessionItem(s, app, { busy, blocked, alive, d, c, silent, namedById, now }) {
   const named = namedById.get(s.id);
-  const question = !busy && f?.question?.length ? f.question : null;
-  const ask = !busy && !question && f?.ask ? f.ask : null;
-  const mock = ask?.kind === 'mock';
+  const question = c?.question || null, ask = c?.ask || null, mock = ask?.kind === 'mock';
   const facts = [[s.firstTs, 'Session started', '']];
   for (const [b, t] of s.branches) if (!/^(master|main|HEAD)$|^worktree-/.test(b) && Number.isFinite(t)) facts.push([t, `Branch ${b}`, '']);
-  if (question) facts.push([f.at, question.length === 1 ? 'Asked you a question' : `Asked you ${question.length} questions`, '']);
-  else if (ask) facts.push([f.at, mock ? 'Asked you to try it in the mock' : 'Asked you: ' + firstSentence(ask.text, 80), '']);
-  else if (busy) facts.push([s.lastTs, 'Working', '']);
-  if (!alive) facts.push([Math.max(s.lastTs, f?.at || 0), question ? 'Session ended with the question open' : 'Session ended', '']);
+  declaredFacts(facts, d, c, silent, s.lastTs);
+  if (busy) facts.push([s.lastTs, 'Working', '']);
+  if (!alive) facts.push([Math.max(s.lastTs, c?.at || 0), question ? 'Session ended with the question open' : 'Session ended', '']);
   const title = sessionTitle(s, named) || 'A session on boris';
   const item = {
-    id: s.id, app, title, who: busy ? 'agent' : question || ask ? 'ben' : 'paused', steps: mock ? FROM_MOCK : BUILD, step: 0,
-    session: title, sessionId: s.id, sessionEnded: !alive, menu: null, checked: false
+    id: s.id, app, title, who: 'stuck', steps: mock ? FROM_MOCK : BUILD, step: 0,
+    session: title, sessionId: s.id, sessionEnded: !alive, menu: menuOf(c, now), checked: false
   };
-  if (busy) item.reason = named?.doing || 'Its session is working.';
-  else if (question) item.question = { asked: when(f.at, now), parts: question };
-  else if (ask) item.ask = { kind: ask.kind, text: ask.text, liveAt: '' };
-  else item.reason = status === 'idle' ? `Its turn ended ${when(s.lastTs, now)}. The session is still open.` : 'Waiting on you in the Claude app.';
-  if (f && !busy) item.report = f.report;
+  if (busy) Object.assign(item, { who: 'agent', reason: named?.doing || 'Its session is working.' });
+  else if (blocked) Object.assign(item, { who: 'agent', reason: 'Waiting on you in the Claude app.' });
+  else if (question) Object.assign(item, { who: 'ben', question: { asked: when(c.at, now), parts: question } });
+  else if (ask) Object.assign(item, { who: 'ben', ask: { kind: ask.kind, text: ask.text, liveAt: '' } });
+  else if (c?.kind === 'waiting') Object.assign(item, alive ? { who: 'job', job: clip(c.on, 24), reason: `Waiting on ${c.on}.` } : STOPPED(c.on));
+  else if (c?.left) Object.assign(item, LEFT(c.left));
+  else Object.assign(item, NO_STATUS);
+  if (c) item.report = c.report;
   return finish(item, facts, now);
 }
 
@@ -641,7 +508,7 @@ async function current() {
 // An ask Ben cleared with It works or Done (server/acted.mjs) leaves for good: the item is live and checked.
 export async function getItems() {
   const now = Date.now();
-  return structuredClone(await current()).filter((i) => !(i.who === 'paused' && isArchived(i.sessionId))).map((i) => {
+  return structuredClone(await current()).filter((i) => !(i.who === 'stuck' && !i.pr && isArchived(i.sessionId))).map((i) => {
     const c = i.who === 'ben' && i.ask && i.ask.kind !== 'mock' ? clearedAsk(i.id, i.ask.text) : null;
     if (c) {
       const at = ms(c.at);

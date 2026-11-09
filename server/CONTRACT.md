@@ -16,7 +16,7 @@ One module per data kind, so each can be replaced on its own. Each export is `as
 | Module | Exports | Feeds |
 |---|---|---|
 | `server/sources/items.mjs` | `getItems()`, `getTracks()`, `getNow()` | `/api/today-work` items, build, fromMock, now |
-| `server/sources/sessions.mjs` | `getSessions()`, `getThreads()`, `getSessionFacts()` | `/api/today-work` sessions, threads; `getSessionFacts()` is for `items.mjs` to join on (below) |
+| `server/sources/sessions.mjs` | `getSessions()`, `getThreads()` | `/api/today-work` sessions, threads |
 | `server/sources/projects.mjs` | `getApps()`, `getDays14()`, `getDayPrs()` | `/api/projects` |
 | `server/sources/agentos.mjs` | `getAos()`, `getPartInfo()`, `getVersions()` | `/api/agentos` |
 
@@ -46,18 +46,19 @@ What the Today and Work tabs, an item's page and a session's screen read.
 | `id` | string | stable id, used in routes (`#item-<id>`, `#session-<id>`) |
 | `app` | string | project key, matches `Project.key` |
 | `title` | string | |
-| `who` | `'ben' \| 'agent' \| 'job' \| 'live' \| 'stuck' \| 'paused'` | who has it now: a question or ask waits on Ben, an agent is working, an automated job holds it, it is live, it is stuck, or its session is still open with no PR and nothing clearly asked |
+| `who` | `'ben' \| 'agent' \| 'job' \| 'live' \| 'stuck'` | who has it now: a question or ask waits on Ben, an agent is working, an automated job holds it, it is live, it is stuck, or its session is still open with no PR and nothing clearly asked |
 | `job` | string? | with `who: 'job'`: the job's name (`Secret scan`, `Deploying`, `EAS build`, `TestFlight`) |
 | `steps` | string[] | its track: equal to `build` or `fromMock` |
 | `step` | number | index into `steps` where it is |
 | `session` | string | its session's title |
-| `sessionEnded` | boolean? | the session has ended (a question stays) |
+| `sessionEnded` | boolean? | no process is running for its session (a question stays) |
 | `pr` | number? | its PR number |
 | `question` | `{ asked: string, parts: Part[] }`? | with `who: 'ben'`: the agent's open question |
 | `ask` | `{ kind: 'try' \| 'do' \| 'mock', text: string, liveAt: string }`? | with `who: 'ben'`: something only Ben can do; `liveAt` is `''` for mock asks |
-| `menu` | `{ asked: string, parts: Part[] }`? | a "What next?" offer after shipping; never counts as waiting. Needs Ben's input to tell from a question, so `null` for now |
+| `menu` | `{ asked: string, parts: Part[] }`? | the follow-ups a `done` offered, for a day after it; never counts as waiting |
 | `reason` | string? | why it is where it is, in words (not for `who: 'ben'`) |
 | `short` | string? | with `who: 'stuck'`: the reason in a few words, for a project card |
+| `stuckBy` | `'silent' \| 'declared'`? | with `who: 'stuck'`, when no fact holds it: its turn ended with no status, or its agent said it left something or stopped waiting. Ben can archive these; Fix it shows unless `silent` |
 | `overnight` | boolean? | it happened overnight |
 | `unseen` | boolean? | with `who: 'live'`: Ben hasn't opened it yet (it shows under Done) |
 | `checked` | boolean? | Ben marked its ask as working or done (`POST /api/act/clear`) |
@@ -65,25 +66,25 @@ What the Today and Work tabs, an item's page and a session's screen read.
 | `facts` | `[time: string, text: string, link: string][]` | what happened, oldest first; `link` is a label or `''` |
 | `sessionId` | string | the Claude Code session id behind it, or `''`; `/api/today-work` fills `Session.item` from it |
 
-How `items.mjs` works it out (nothing is stored): an item is a PR in a `bensoutendijk` repo under `~/projects`
+How `items.mjs` works it out from facts and from what agents declared (Declarations, below): an item is a PR in a `bensoutendijk` repo under `~/projects`
 (id `<app>-<pr>`; open, or merged in the last 14 days; none from before 2026-11-02), joined to the session that opened
 it (the transcript's `pr-link` records) or merged it (Prometheus `agent_os_session_pr`); or a session with no PR that is
-working now, ended its turn on a question or ask, or is still open (id = the session id; `paused` in that last case, until the session ends or Ben archives it). A mock ask is always its own item on `fromMock`.
+working now, whose agent declared something unfinished, or whose turn ended with no status (id = the session id). A mock ask is always its own item on `fromMock`.
+A session's declaration belongs to its latest PR. A session with no declarations file predates the tools: it is never `ben` or stuck for want of a status.
 - `step`: 0 no PR, 1 PR open, 2 merged and not yet live, 3 live (merged and its deploy passed, or the repo has no deploy workflow).
-- `who`, first match: `stuck` a deploy failed and no session is working; `stuck` the deploy run has been queued over 15 minutes
+- `who`, first match (facts first, so a declaration can't clear them): `stuck` a deploy failed and no session is working; `stuck` the deploy run has been queued over 15 minutes
   (no runner picked it up) and no session is working; `job` a check on the open PR or the deploy is running
-  or queued; `agent` its session is working; `ben` the session's last turn ended on a question, or on an ask once the change is
-  live (mock asks at once); `live`; `stuck` the PR is open and its session ended, or it merged with no deploy run though the repo
-  has a deploy workflow; otherwise `agent` (its session is idle with the PR open).
+  or queued; `agent` its session is working; `ben` the agent's `ask` holds a question, or an action once the change is live (mock actions at once);
+  `job` the agent's `waiting`, while its session runs (`stuck` once it doesn't); `stuck` the turn ended with no status (`Its turn ended without a status.`); `stuck` the agent's `done` left something; `live`;
+  `stuck` the PR is open and its session isn't running, or it merged with no deploy run though the repo has a deploy workflow; otherwise `agent` (its session is idle with the PR open).
 - `job` names: `Secret scan`, `Deploying`, `EAS build`, `TestFlight` (from the running deploy job's step), or the check's own
-  workflow name. The usual time is the median of that workflow's recent successful runs.
-- A question's parts come from the numbered options in the agent's last message, the agent's pick marked "my pick" (else the
-  first). A numbered heading with lettered options under it and no question mark counts as a question too. A yes-or-no question gets `['Yes', 'No']`; an open one (which, what, this or that) gets `opts: []`: Ben replies in words.
+  workflow name, or what a `waiting` named. The usual time is the median of that workflow's recent successful runs.
+- A question's parts, an ask, the report and the follow-ups are the agent's `ask` and `done` records, unchanged. Billboard never reads them out of its words.
 
 An item whose ask (not a mock ask) Ben cleared with It works or Done, while its ask text is still the one he cleared, is
 `who: 'live'` at the track's last step with `checked: true`, its `ask` dropped, a fact "You marked it working/done", and never `unseen`.
 
-**Part**: `{ q: string, opts: string[], pick: number }`; `pick` is the agent's pick, an index into `opts`.
+**Part**: `{ q: string, opts: string[], pick: number | null }`; `pick` is an index into `opts`, `null` when the agent named none.
 
 **Session**: a Claude Code session on boris.
 | Field | Type | Meaning |
@@ -91,7 +92,7 @@ An item whose ask (not a mock ask) Ben cleared with It works or Done, while its 
 | `id` | string | |
 | `app` | string | project key |
 | `title` | string | |
-| `state` | `'working' \| 'job' \| 'ben' \| 'paused' \| 'done'` | tool calls now; waiting on an automated job; its turn ended on a question or ask; its turn ended with work still open; everything merged and live |
+| `state` | `'working' \| 'job' \| 'ben' \| 'paused' \| 'done'` | tool calls now; its agent declared `waiting`; it declared `ask`, or Claude Code is waiting on Ben; it said `done` with something left, or its turn ended with no status; it said `done` with nothing left, or predates the tools |
 | `job` | string? | with `state: 'job'` |
 | `doing` | string | what it is doing or where it stopped, in words |
 | `mins` | number? | minutes running (working and job) |
@@ -103,28 +104,20 @@ An item whose ask (not a mock ask) Ben cleared with It works or Done, while its 
 | `unseen` | boolean? | with `state: 'done'`: Ben hasn't opened it since its turn ended (`isSeen` in `server/seen.mjs`); Done lists it only when it has no item |
 | `url` | string \| null | the session in the Claude app (`https://claude.ai/code/session_…`), `null` when it has no app session |
 
-A session Ben archived from Billboard (`POST /api/act/archive`) is left out of `sessions`, and its `paused` item is left out of `items`.
+A session Ben archived from Billboard (`POST /api/act/archive`) is left out of `sessions`. Its stuck item with no PR is left out of `items`; an item with a PR drops `stuckBy` and goes on to whatever its facts say.
 
 Where sessions come from (`server/sources/sessions.mjs`): `claude agents --json` and `~/.claude/sessions/<pid>.json` for
-live sessions, and the main-session transcripts in `~/.claude/projects/-home-ben-projects*/<sessionId>.jsonl` changed since
-2026-11-02 (read incrementally, refreshed every 10 s). A session's `app` is the `~/projects/<name>` under its cwd (for a
-session in `~/projects` itself, the project its commands touched most). `state`: `working` while its process is busy (`job`
-when the running command is `gh pr checks --watch`, `gh run watch`, `eas build` or `eas submit`); a live session whose turn
-ended on a numbered question or a "Needs Ben" section is `ben`; one with a PR still open on GitHub, a "What's left", or a
-branch with no PR is `paused`; the rest, and every ended session, `done`. `cost` comes from Prometheus
-(`claude_code_cost_usage_USD_total` by `session_id`), else the transcript's last cost record. Merged PRs come from the
-transcript's `gh pr merge` calls, the labels service's `agent_os_session_pr`, and `gh pr view` for PRs it opened.
-
-**SessionFacts** (`getSessionFacts()`, keyed by session id; not sent to the page): `{ id, app, cwd, live, status, startedAt,
-lastAt, turnEndedAt, toolCalls, prsOpened: {n, url, repo}[], prsMerged: number[], report: {works, left, needs} | null,
-question: {asked, parts: Part[]} | null, lastText }`. Times are epoch ms.
+live sessions, the main-session transcripts in `~/.claude/projects/-home-ben-projects*/<sessionId>.jsonl` changed since
+2026-11-02 (read incrementally, refreshed every 10 s), and what agents declared. Transcripts give only what Claude Code recorded: the conversation shown as written,
+titles, times, git branch and `pr-link` records; never meaning read from an agent's words or commands. A session's `app` is the `~/projects/<name>` under its cwd; a session in `~/projects` itself has no project and isn't shown.
+`doing` is the agent's latest `working` while it runs. `cost` comes from Prometheus (`claude_code_cost_usage_USD_total` by `session_id`), else the transcript's last cost record.
 
 **Message** (in `threads`, keyed by item id or session id; ids with no thread get one built in the browser):
 - `{ who: 'ben', at?: string, text: string, from?: string }`: Ben's message; `from` names where it was started (a mock row)
 - `{ who: 'agent', text: string }`: the agent's words
 - `{ who: 'tools', n: number, mins: number, live?: boolean }`: tool calls folded into one line
 - Real threads hold the latest 40 messages (plus Ben's opening message), each agent message cut at 1500 characters.
-- `{ who: 'report', works: string, left: string, needs: string }`: its report as a card
+- `{ who: 'report', works: string, left: string, needs: string }`: the report the agent declared at the end of its turn, as a card
 
 ## POST /api/seen
 Body `{ id: string }`: an item's or a session's id. The page posts it when it opens that item's page or session's screen.
@@ -141,7 +134,7 @@ Body `{ kind, arg, brief }`:
 - `fix`: `arg` an item id; folder the item's app; name `Fix: <title>`; prompt the brief, then the PR's URL, the deploy run, why it's stuck,
   what happened (its facts) and its last session.
 - `new`: `arg` a project key; name the brief's first words; prompt the brief, then the repo, its mock (`Project.mock`) and its open items.
-- `aos`: `arg` the session's name (`Rule: <name>`, `Skill: <id>`, `Eval for <rule>`, `Allow <command>`, `Remove PowerShell rules`); folder
+- `aos`: `arg` the session's name (`Rule: <name>`, `Skill: <id>`, `Eval for <rule>`, `Remove PowerShell rules`); folder
   agent-os; prompt the brief and that every change is a PR that runs the evals.
 - `eval`: `arg` a `lite/evals/` case name, or `*` for all; no brief. Folder agent-os; the prompt runs
   `node bin/agent-os.mjs eval lite --allow-tools Bash Read Write Edit Glob Grep [--case <name>]` from its own worktree, commits
@@ -214,8 +207,8 @@ repos of the PRs it merged; `lastLive` is the latest merge whose deploy run pass
 - `evalInfo`: `{ [evalName]: { runs, costUsd, judgeModel, date, baselineDate: string|null } | null }`: that latest run
 - `skills`: `{ id, step, kb: number, runs: number, text, evals: string[], history: [when, what][], personal?: true }[]`: every `SKILL.md` under
   `lite/skills/` and `boris/skills/` (`personal`); `text` is its description, `runs` its loads in the last 4 weeks, `step` is `''`
-- `permissions`: `{ allow: number, deny: number, groups: [name, count, sample][], lists: { [groupName]: string[] }, denied: [rule, meaning][], blocked: [when, appKey, what, why][] }`:
-  from `~/.claude/settings.json`; `lists` holds each group's full rules; `blocked` is the tool calls permissions denied in the last 7 days' transcripts, newest first
+- `permissions`: `{ allow: number, deny: number, groups: [name, count, sample][], lists: { [groupName]: string[] }, denied: [rule, meaning][] }`:
+  from `~/.claude/settings.json`; `lists` holds each group's full rules
 - `memories`: `[project, slug, title, type: 'feedback'|'project'|'reference'|'user', line, links: string[]][]` in each project's MEMORY.md order; `title` and
   `line` are the MEMORY.md entry, `type` and `links` (`[[name]]`) come from the memory's file; a missing link is shown as missing
 

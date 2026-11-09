@@ -16,7 +16,7 @@ function clone(x) { return JSON.parse(JSON.stringify(x)); }
 
 // The board's working copy, rebuilt from the globals on every load. Drafts, picks and what Ben opened carry over.
 // Real data can have states the mock's example data never had, so each item and session is made safe to render here.
-var WHOS = ['ben', 'agent', 'job', 'live', 'stuck', 'paused'], STATES = ['working', 'job', 'ben', 'paused', 'done'];
+var WHOS = ['ben', 'agent', 'job', 'live', 'stuck'], STATES = ['working', 'job', 'ben', 'paused', 'done'];
 function normItem(i) {
   if (WHOS.indexOf(i.who) < 0) i.who = 'agent';
   if (!Array.isArray(i.steps) || !i.steps.length) i.steps = BUILD;
