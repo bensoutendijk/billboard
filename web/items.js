@@ -5,7 +5,7 @@
    pending    Its session as a row: what the agent is doing this minute, its time, cost, helpers and branch (or that it ended), opening the session's screen (Ben, 2026-11-08: a way to the agent from Work)
    pending    An item's page is a full screen pushed from Today, Work or a project, with its own route
    pending    The PR and the Claude app as small links beside the title (Ben: rarely used)
-   pending    The badge says who has it now: You, Agent, Live, Stuck, or the automated job that holds it (Secret scan, Deploying, EAS build, TestFlight)
+   pending    The badge says who has it now: You, Agent, Live, Stuck, Paused, or the automated job that holds it (Secret scan, Deploying, EAS build, TestFlight)
    pending    A job's line says how long it has run against how long it usually takes
    dropped    2026-11-07 "Who's on it" badges (Agent on it, Waiting on GitHub, No one on it): Ben prefers the short ones
    dropped    2026-11-07 A plain "GitHub" badge: it named a website, not what was happening
@@ -16,7 +16,7 @@
 */
 'use strict';
 
-var WHO = { ben: ['You', 'orange'], agent: ['Agent', 'indigo'], job: ['', 'teal'], live: ['Live', 'green'], stuck: ['Stuck', 'red'] };
+var WHO = { ben: ['You', 'orange'], agent: ['Agent', 'indigo'], job: ['', 'teal'], live: ['Live', 'green'], stuck: ['Stuck', 'red'], paused: ['Paused', 'gray'] };
 function findItem(id) { return S.items.filter(function (i) { return i.id === id; })[0]; }
 function whoChip(i) { var w = WHO[i.who]; return '<span class="who ' + w[1] + '">' + (i.who === 'agent' || i.who === 'job' ? '<span class="pulse" aria-hidden="true"></span>' : '') + (i.who === 'job' ? i.job : w[0]) + '</span>'; }
 

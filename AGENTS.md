@@ -17,7 +17,7 @@ Ben's command centre for his work with Claude Code on boris: see everything, act
   - No top lines, banners or hero cards on the tabs. Today is the waiting cards, then Done: finished work Ben hasn't opened yet.
   - Memories show exactly as Claude Code keeps them: one folder per project, its MEMORY.md in order, each memory typed and linked by name. No moving or converting memories for now.
   - Nothing made up in the mock: every entity must exist on boris, or the build is on the hook for it. Example numbers are fine.
-  - Finished work is never on Work: it goes to Done on Today.
+  - Finished work is never on Work: it goes to Done on Today. Everything unfinished is on Work, including what waits on Ben (a You filter) and chats still open with no PR (Paused, until the session ends or Ben archives it).
 - The mock, once there is one, is laid out as the `mock` skill says from its first screen: `index.html`, `data.js`, a file per feature with its `LEDGER`, `demo.js`, `shell.js`. Publish only the files you change.
 - Stack: a Node 24 HTTP server (ESM, standard library only, no dependencies, no build step, no framework) that serves the page and a JSON API; the page is plain scripts ported from the mock. No tests (Agent OS rules).
 - Layout:
