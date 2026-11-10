@@ -16,7 +16,6 @@ Ben's command centre for his work with Claude Code on boris: see everything, act
   - Every drill-down is a full screen pushed onto its tab's own stack, with a back button, an edge swipe back and its own route; no sheets or modals. Tapping the open tab pops to its root.
   - No top lines, banners or hero cards on the tabs. Today is the waiting cards, then Done: finished work Ben hasn't opened yet.
   - Memories show exactly as Claude Code keeps them: one folder per project, its MEMORY.md in order, each memory typed and linked by name. No moving or converting memories for now.
-  - Nothing made up in the mock: every entity must exist on boris, or the build is on the hook for it. Example numbers are fine.
   - Finished work is never on Work: it goes to Done on Today. Everything unfinished is on Work, including what waits on Ben (a You filter) and chats still open with no PR (Paused, until the session ends or Ben archives it).
 - The mock, once there is one, is laid out as the `mock` skill says from its first screen: `index.html`, `data.js`, a file per feature with its `LEDGER`, `demo.js`, `shell.js`. Publish only the files you change.
 - Billboard never reads meaning out of what an agent wrote or ran (Ben, 2026-11-08). Agents declare where their session stands through the `billboard` tools; Billboard shows those, facts from GitHub and what Claude Code recorded (the conversation as written, titles, times, branches, `pr-link`, cost). Sessions in `~/projects` itself aren't shown. Facts beat declarations.
