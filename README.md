@@ -1,5 +1,10 @@
 # Billboard
 
+> **Retired on 2026-11-11.** Ben moved to Claude Duet. Billboard's status layer and report card live in agent-os
+> (`mcp/status.mjs`, the report card; agent-os #188, #189). On boris, the `billboard` service is stopped and unlinked,
+> the tailnet forward on 4710 is off, the Deploy workflow is disabled, and claude-rc runs no Remote Control server here.
+> The code stays for reference; nothing runs it. agent-os `docs/boris.md` ("Not running, still on disk") has the details.
+
 A view over Ben's work with Claude Code sessions on boris, for optimizing that workflow.
 
 The design is the "Billboard Mocks" artifact (https://claude.ai/artifact/UbyQP4gmaWyhihaCU8i1S9).
